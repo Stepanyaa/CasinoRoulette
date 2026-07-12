@@ -120,16 +120,6 @@ Remember: This plugin is for **entertainment purposes only** in a Minecraft serv
 
 ---
 
-## 🔮 **Future Plans**
-
-- More casino games (Blackjack, Poker, Dice)
-- VIP system with special rewards
-- Jackpot system with progressive prizes
-- Customizable game themes and skins
-- Mobile-friendly GUI improvements
-
----
-
 **Enjoy responsibly and have fun!** 🎉
 
 ---
