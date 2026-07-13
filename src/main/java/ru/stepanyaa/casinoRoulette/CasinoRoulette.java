@@ -1,3 +1,26 @@
+/*
+MIT License
+
+Copyright (c) 2026 Stepanyaa
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 package ru.stepanyaa.casinoRoulette;
 
 import org.bukkit.*;
@@ -130,7 +153,6 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         Player p = e.getPlayer();
         UUID uuid = p.getUniqueId();
 
-        // Handle active bets - refund them to prevent loss
         handlePlayerDisconnect(uuid);
 
         saveSpecificPlayer(uuid);
@@ -259,17 +281,12 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
      * @param uuid The UUID of the player who disconnected
      */
     public void handlePlayerDisconnect(UUID uuid) {
-        // Refund Crash game bets
         if (crashGame != null) {
             crashGame.handlePlayerDisconnect(uuid);
         }
-
-        // Refund Slot machine bets
         if (slotMachine != null) {
             slotMachine.handlePlayerDisconnect(uuid);
         }
-
-        // Refund Roulette bets
         if (activeBets.containsKey(uuid)) {
             Map<String, Integer> bets = activeBets.remove(uuid);
             int totalRefund = bets.values().stream().mapToInt(Integer::intValue).sum();
@@ -279,7 +296,6 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             }
         }
 
-        // Clean up
         playersInGame.remove(uuid);
         activeGameInventories.remove(uuid);
         currentBetAmount.remove(uuid);
@@ -290,26 +306,20 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         if (economyMode.equalsIgnoreCase("VAULT")) {
             try {
                 if (economy != null) {
-                    // Try different method signatures for has()
                     boolean success = false;
                     boolean result = false;
-
-                    // Try Player, double parameters first
                     try {
                         result = (boolean) economy.getClass().getMethod("has", Player.class, double.class).invoke(economy, p, amount);
                         success = true;
                     } catch (NoSuchMethodException e1) {
-                        // Try String, double parameters (player name)
                         try {
                             result = (boolean) economy.getClass().getMethod("has", String.class, double.class).invoke(economy, p.getName(), amount);
                             success = true;
                         } catch (NoSuchMethodException e2) {
-                            // Try UUID, double parameters
                             try {
                                 result = (boolean) economy.getClass().getMethod("has", UUID.class, double.class).invoke(economy, p.getUniqueId(), amount);
                                 success = true;
                             } catch (NoSuchMethodException e3) {
-                                // Try OfflinePlayer, double parameters
                                 try {
                                     result = (boolean) economy.getClass().getMethod("has", OfflinePlayer.class, double.class).invoke(economy, p, amount);
                                     success = true;
@@ -336,25 +346,20 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         if (economyMode.equalsIgnoreCase("VAULT")) {
             try {
                 if (economy != null) {
-                    // Try different method signatures for withdrawPlayer()
                     boolean success = false;
 
-                    // Try Player, double parameters first
                     try {
                         economy.getClass().getMethod("withdrawPlayer", Player.class, double.class).invoke(economy, p, amount);
                         success = true;
                     } catch (NoSuchMethodException e1) {
-                        // Try String, double parameters (player name)
                         try {
                             economy.getClass().getMethod("withdrawPlayer", String.class, double.class).invoke(economy, p.getName(), amount);
                             success = true;
                         } catch (NoSuchMethodException e2) {
-                            // Try UUID, double parameters
                             try {
                                 economy.getClass().getMethod("withdrawPlayer", UUID.class, double.class).invoke(economy, p.getUniqueId(), amount);
                                 success = true;
                             } catch (NoSuchMethodException e3) {
-                                // Try OfflinePlayer, double parameters
                                 try {
                                     economy.getClass().getMethod("withdrawPlayer", OfflinePlayer.class, double.class).invoke(economy, p, amount);
                                     success = true;
@@ -383,25 +388,20 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         if (economyMode.equalsIgnoreCase("VAULT")) {
             try {
                 if (economy != null) {
-                    // Try different method signatures for depositPlayer()
                     boolean success = false;
 
-                    // Try Player, double parameters first
                     try {
                         economy.getClass().getMethod("depositPlayer", Player.class, double.class).invoke(economy, p, amount);
                         success = true;
                     } catch (NoSuchMethodException e1) {
-                        // Try String, double parameters (player name)
                         try {
                             economy.getClass().getMethod("depositPlayer", String.class, double.class).invoke(economy, p.getName(), amount);
                             success = true;
                         } catch (NoSuchMethodException e2) {
-                            // Try UUID, double parameters
                             try {
                                 economy.getClass().getMethod("depositPlayer", UUID.class, double.class).invoke(economy, p.getUniqueId(), amount);
                                 success = true;
                             } catch (NoSuchMethodException e3) {
-                                // Try OfflinePlayer, double parameters
                                 try {
                                     economy.getClass().getMethod("depositPlayer", OfflinePlayer.class, double.class).invoke(economy, p, amount);
                                     success = true;
@@ -448,26 +448,21 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         if (economyMode.equalsIgnoreCase("VAULT")) {
             try {
                 if (economy != null) {
-                    // Try different method signatures for getBalance
                     double balance = 0;
                     boolean success = false;
 
-                    // Try Player parameter first
                     try {
                         balance = (double) economy.getClass().getMethod("getBalance", Player.class).invoke(economy, p);
                         success = true;
                     } catch (NoSuchMethodException e1) {
-                        // Try String parameter (player name)
                         try {
                             balance = (double) economy.getClass().getMethod("getBalance", String.class).invoke(economy, p.getName());
                             success = true;
                         } catch (NoSuchMethodException e2) {
-                            // Try UUID parameter
                             try {
                                 balance = (double) economy.getClass().getMethod("getBalance", UUID.class).invoke(economy, p.getUniqueId());
                                 success = true;
                             } catch (NoSuchMethodException e3) {
-                                // Try OfflinePlayer parameter
                                 try {
                                     balance = (double) economy.getClass().getMethod("getBalance", OfflinePlayer.class).invoke(economy, p);
                                     success = true;
@@ -487,7 +482,6 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             }
         }
 
-        // Fallback to item mode
         int count = 0;
         for (ItemStack item : p.getInventory().getContents()) {
             if (item != null && item.getType() == itemResource) {
@@ -507,7 +501,6 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
     }
 
     public void sendSetupMessage(Player p) {
-        // Check if BungeeChat API is available for clickable messages
         if (BungeeSetupMessage.isAvailable()) {
             try {
                 BungeeSetupMessage.sendSetupMessage(this, p);
@@ -517,7 +510,6 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             }
         }
 
-        // Fallback to simple text messages if BungeeChat API is not available
         simpleSetupMessage(p);
     }
 
@@ -554,8 +546,6 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
     }
 
     private void sendClickableMessage(Player player, String text, String hoverText, String command) {
-        // Send formatted text message with instructions
-        // Note: For full clickable functionality, consider adding BungeeChat as a dependency
         player.sendMessage(ChatColor.translateAlternateColorCodes('&', text + " &7- " + hoverText));
     }
 
@@ -728,7 +718,6 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         String input = e.getMessage().trim();
         String mode = awaitingInput.get(uuid);
 
-        // Check for cancel command
         if (input.equalsIgnoreCase("cancel") || input.equalsIgnoreCase("отмена")) {
             e.setCancelled(true);
             awaitingInput.remove(uuid);
@@ -905,7 +894,6 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
                 }
             }
 
-            // Always update the inventory to show current chips, even for spectators
             if (p != null && activeGameInventories.containsKey(uuid)) {
                 gui.updateGameInventory(p, activeGameInventories.get(uuid));
             }

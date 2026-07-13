@@ -1,3 +1,26 @@
+/*
+MIT License
+
+Copyright (c) 2026 Stepanyaa
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 package ru.stepanyaa.casinoRoulette;
 
 import org.bukkit.Bukkit;
@@ -51,7 +74,6 @@ public class RouletteGUI {
 
         String currency = plugin.getCurrencyName();
 
-        // Add player's current chips display
         int chips = plugin.getPlayerChips().getOrDefault(p.getUniqueId(), 0);
         inv.setItem(13, plugin.createItem(Material.GOLD_NUGGET, cm.getMessage("gui.roulette.your_chips", "&6Chips: %amount%", "amount", plugin.formatNumber(chips))));
 
@@ -95,7 +117,6 @@ public class RouletteGUI {
                 cm.getMessage("gui.buy.custom_lore", "&7Lore"),
                 cm.getMessage("gui.exchange.commission", "&6Fee: %fee%", "fee", plugin.getConfigManager().getConfig().getDouble("settings.commission_percent"))));
 
-        // Add player's current chips display
         int currentChips = plugin.getPlayerChips().getOrDefault(p.getUniqueId(), 0);
         inv.setItem(20, plugin.createItem(Material.GOLD_NUGGET, cm.getMessage("gui.roulette.your_chips", "&6Chips: %amount%", "amount", plugin.formatNumber(currentChips))));
 
@@ -137,7 +158,6 @@ public class RouletteGUI {
                 cm.getMessage("gui.sell.custom_lore", "&7Lore"),
                 cm.getMessage("gui.exchange.commission", "&6Fee: %fee%", "fee", plugin.getConfigManager().getConfig().getDouble("settings.commission_percent"))));
 
-        // Add player's current chips display
         int currentChips = plugin.getPlayerChips().getOrDefault(p.getUniqueId(), 0);
         inv.setItem(20, plugin.createItem(Material.GOLD_NUGGET, cm.getMessage("gui.roulette.your_chips", "&6Chips: %amount%", "amount", plugin.formatNumber(currentChips))));
 

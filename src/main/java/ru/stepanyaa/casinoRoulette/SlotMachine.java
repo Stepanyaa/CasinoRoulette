@@ -1,3 +1,26 @@
+/*
+MIT License
+
+Copyright (c) 2026 Stepanyaa
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 package ru.stepanyaa.casinoRoulette;
 
 import org.bukkit.*;
@@ -33,12 +56,11 @@ public class SlotMachine {
             }
         }
         if (weights.isEmpty()) {
-            // Reduced win chances - more common symbols, fewer rare ones
             weights.put(Material.COAL, 40);      // Very common (40%)
             weights.put(Material.IRON_INGOT, 25); // Common (25%)
-            weights.put(Material.GOLD_INGOT, 5);  // Rare (5%, was 8%)
-            weights.put(Material.EMERALD, 3);   // Very rare (3%, was 5%)
-            weights.put(Material.DIAMOND, 2);    // Extremely rare (2%, was 3%)
+            weights.put(Material.GOLD_INGOT, 5);  // Rare (5%)
+            weights.put(Material.EMERALD, 3);   // Very rare (3%)
+            weights.put(Material.DIAMOND, 2);    // Extremely rare (2%)
         }
     }
 
@@ -56,7 +78,6 @@ public class SlotMachine {
         inv.setItem(17, plugin.createItem(Material.LEVER, cm.getMessage("gui.slots.spin", "&6SPIN!")));
         for (int i = 10; i <= 16; i++) inv.setItem(i, plugin.createItem(Material.BARRIER, cm.getMessage("common.awaiting", "&7Awaiting...")));
 
-        // Add player's current chips display
         int chips = plugin.getPlayerChips().getOrDefault(p.getUniqueId(), 0);
         inv.setItem(20, plugin.createItem(Material.GOLD_NUGGET, cm.getMessage("gui.roulette.your_chips", "&6Chips: %amount%", "amount", plugin.formatNumber(chips))));
 
@@ -168,7 +189,6 @@ public class SlotMachine {
                     inv.setItem(17, plugin.createItem(Material.LEVER, cm.getMessage("gui.slots.spin", "&6SPIN!")));
                     isSpinning.put(p.getUniqueId(), false);
 
-                    // Update player's chips display after spin
                     int currentChips = plugin.getPlayerChips().getOrDefault(p.getUniqueId(), 0);
                     inv.setItem(20, plugin.createItem(Material.GOLD_NUGGET, cm.getMessage("gui.roulette.your_chips", "&6Chips: %amount%", "amount", plugin.formatNumber(currentChips))));
                 }
@@ -176,13 +196,8 @@ public class SlotMachine {
         }.runTaskTimer(plugin, 0L, 2L);
     }
 
-    /**
-     * Handles player disconnection by refunding any active bets
-     * @param uuid The UUID of the player who disconnected
-     */
     public void handlePlayerDisconnect(UUID uuid) {
         if (isSpinning.containsKey(uuid) && isSpinning.get(uuid)) {
-            // Player was spinning when they disconnected - refund their bet
             int betAmount = currentSlotBet.getOrDefault(uuid, 0);
             if (betAmount > 0) {
                 plugin.getPlayerChips().put(uuid, plugin.getPlayerChips().getOrDefault(uuid, 0) + betAmount);

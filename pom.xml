@@ -6,7 +6,7 @@
 
     <groupId>ru.stepanyaa</groupId>
     <artifactId>CasinoRoulette</artifactId>
-    <version>v1.1.0</version>
+    <version>v1.2.0</version>
     <packaging>jar</packaging>
 
     <name>СasinoRoulette</name>

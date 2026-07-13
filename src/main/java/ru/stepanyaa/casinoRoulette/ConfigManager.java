@@ -1,3 +1,26 @@
+/*
+MIT License
+
+Copyright (c) 2026 Stepanyaa
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 package ru.stepanyaa.casinoRoulette;
 
 import org.bukkit.ChatColor;
@@ -20,8 +43,8 @@ public class ConfigManager {
     private File langFile;
     private FileConfiguration langConfig;
 
-    private static final String CURRENT_CONFIG_VERSION = "1.1.0";
-    private static final String CURRENT_LANG_VERSION = "1.1.0";
+    private static final String CURRENT_CONFIG_VERSION = "1.2.0";
+    private static final String CURRENT_LANG_VERSION = "1.2.0";
 
     public ConfigManager(CasinoRoulette plugin) {
         this.plugin = plugin;
@@ -38,7 +61,7 @@ public class ConfigManager {
 
         config = YamlConfiguration.loadConfiguration(configFile);
 
-        String fileVersion = config.getString("config-version", "1.1.0");
+        String fileVersion = config.getString("config-version", "1.2.0");
         if (!fileVersion.equals(CURRENT_CONFIG_VERSION)) {
             plugin.getLogger().info("Updating config.yml from " + fileVersion + " to " + CURRENT_CONFIG_VERSION);
             updateConfigFile();
