@@ -1,4 +1,4 @@
-# **CasinoRoulette** – Ultimate Casino Experience for Minecraft! 🎰💎
+# **CasinoRoulette** – The Best Free Casino Plugin for Minecraft! 🎰💎
 
 Bring the excitement of a real casino to your Minecraft server! **CasinoRoulette** offers a **stunning, immersive, and feature-rich** casino experience with multiple games, beautiful GUIs, and complete economy integration.
 
@@ -127,7 +127,7 @@ Remember: This plugin is for **entertainment purposes only** in a Minecraft serv
 <details>
 <summary><strong>Русская версия (Russian version) ▼</strong></summary>
 
-# **CasinoRoulette** – Лучший казино-опыт для Minecraft! 🎰💎
+# **CasinoRoulette** – Лучший бесплатный плагин казино для Minecraft! 🎰💎
 
 Принесите волнение настоящего казино на ваш Minecraft сервер! **CasinoRoulette** предлагает **потрясающий, захватывающий и насыщенный** казино-опыт с несколькими играми, красивыми интерфейсами и полной интеграцией с экономикой.
 
