@@ -2,12 +2,16 @@ name: CasinoRoulette
 version: '1.2.0'
 main: ru.stepanyaa.casinoRoulette.CasinoRoulette
 api-version: 1.16
-softdepend: [Vault]
+softdepend: [Vault, PlaceholderAPI, PlayerPoints]
+folia-supported: true
 
 commands:
   casino:
     description: Main casino menu
-    usage: /casino [reload]
+    usage: /casino [reload|top|leaderboard|stats|wheel|daily]
+  dailywheel:
+    description: Daily fortune wheel
+    usage: /dailywheel
 
 permissions:
   casino.reload:
@@ -36,3 +40,19 @@ permissions:
       casino.reload: true
       casino.update.notify: true
       casino.limit.admin: true
+  casino.leaderboard:
+    description: Access leaderboard
+    default: true
+  casino.stats:
+    description: View casino stats
+    default: true
+  casino.wheel:
+    description: Play fortune wheel
+    default: true
+  casino.dailywheel:
+    description: Use daily wheel
+    default: true
+
+  casino.placeholders:
+    description: PlaceholderAPI support
+    default: true

@@ -1,26 +1,4 @@
-/*
-MIT License
 
-Copyright (c) 2026 Stepanyaa
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
 package ru.stepanyaa.casinoRoulette;
 
 import org.bukkit.*;
@@ -29,7 +7,7 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
+import ru.stepanyaa.casinoRoulette.scheduler.CasinoScheduler;
 import java.util.*;
 
 public class CrashGame {
@@ -157,17 +135,16 @@ public class CrashGame {
         double step = plugin.getConfigManager().getConfig().getDouble("crash.increment", 0.01);
         ConfigManager cm = plugin.getConfigManager();
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!gameRunning) { cancel(); return; }
+        CasinoScheduler.timer(0L, speed, task -> {
+                if (!gameRunning) { task.cancel(); return; }
                 currentMultiplier += step;
 
                 if (currentMultiplier >= crashPoint) {
                     gameRunning = false;
                     String crashedMsg = cm.getMessage("messages.crash.exploded", "&cCRASHED AT x%mult%!", "mult", String.format("%.2f", crashPoint));
                     String prefix = cm.getMessage("messages.prefix", "&7[&6Casino&7] ");
-                    Bukkit.getOnlinePlayers().forEach(player -> {
+
+                    Bukkit.getOnlinePlayers().forEach(player -> CasinoScheduler.atEntity(player, () -> {
                         UUID uuid = player.getUniqueId();
                         if (playerBets.containsKey(uuid) && !cashedOut.getOrDefault(uuid, false)) {
                             plugin.logGameResult(uuid, playerBets.get(uuid), 0, false);
@@ -177,15 +154,14 @@ public class CrashGame {
                         if (ChatColor.stripColor(player.getOpenInventory().getTitle()).equals(ChatColor.stripColor(cm.getMessage("gui.titles.crash", "Crash Game")))) {
                             updateInventory(player);
                         }
-                    });
+                    }));
                     playerBets.clear();
                     cashedOut.clear();
-                    cancel();
+                    task.cancel();
                 } else {
                     updateAllInventories();
                 }
-            }
-        }.runTaskTimer(plugin, 0L, speed);
+        });
     }
 
     private double generateCrashPoint() {
@@ -198,10 +174,6 @@ public class CrashGame {
         return 1.50 + random.nextDouble() * 8.50;
     }
 
-    /**
-     * Handles player disconnection by refunding any active bets
-     * @param uuid The UUID of the player who disconnected
-     */
     public void handlePlayerDisconnect(UUID uuid) {
         if (playerBets.containsKey(uuid)) {
             int betAmount = playerBets.remove(uuid);
@@ -248,8 +220,8 @@ public class CrashGame {
     private void updateAllInventories() {
         ConfigManager cm = plugin.getConfigManager();
         String expectedTitle = ChatColor.stripColor(cm.getMessage("gui.titles.crash", "Crash Game"));
-        Bukkit.getOnlinePlayers().forEach(p -> {
+        Bukkit.getOnlinePlayers().forEach(p -> CasinoScheduler.atEntity(p, () -> {
             if (ChatColor.stripColor(p.getOpenInventory().getTitle()).equals(expectedTitle)) updateInventory(p);
-        });
+        }));
     }
 }

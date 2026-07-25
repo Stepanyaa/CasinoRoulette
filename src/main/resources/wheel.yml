@@ -1,0 +1,32 @@
+wheel:
+  # The wheel of fortune is always played with CHIPS, whatever economy-mode says.
+  # Players buy chips at the exchange; money and the item currency are never bet here.
+  bet-step: 100
+  min-bet: 10
+  max-bet: 10000
+  animation-tick: 2
+  sectors:
+    orange: 3
+    yellow: 2
+    blue: 1
+    red: 1
+  multipliers:
+    orange: 1
+    yellow: 3
+    blue: 6
+    red: 9
+gui:
+  color-start-slot: 45
+colors:
+  orange:
+    name: "Orange"
+    material: ORANGE_WOOL
+  yellow:
+    name: "Yellow"
+    material: YELLOW_WOOL
+  blue:
+    name: "Blue"
+    material: BLUE_WOOL
+  red:
+    name: "Red"
+    material: RED_WOOL

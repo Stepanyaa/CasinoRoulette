@@ -6,32 +6,90 @@
 
     <groupId>ru.stepanyaa</groupId>
     <artifactId>CasinoRoulette</artifactId>
-    <version>v1.2.0</version>
+    <!-- Sponge requires a Java module-compatible version beginning with a digit. -->
+    <version>1.2.0</version>
     <packaging>jar</packaging>
 
-    <name>СasinoRoulette</name>
+    <name>CasinoRoulette</name>
+    <description>Multi-platform casino plugin: one jar for Bukkit, Spigot, Paper, Purpur, Folia and Sponge.</description>
 
     <properties>
+        <!--
+          Java 11 is kept deliberately.
+
+          Sponge API 12 targets Java 17, but the Sponge layer of this plugin is written
+          entirely against reflection precisely so that the project does not have to be
+          raised to 17. Raising it would drop support for the older Bukkit servers that
+          still run this plugin, and would produce class files a Java 11 JVM refuses to
+          load - which is the opposite of the single-jar goal.
+        -->
         <java.version>11</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <build>
         <defaultGoal>clean package</defaultGoal>
+
+        <!-- One artifact for every platform: CasinoRoulette-v1.2.0.jar -->
+        <finalName>${project.artifactId}-${project.version}</finalName>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <!-- Compile against the Java 11 API and emit Java 11 bytecode. -->
+                    <release>${java.version}</release>
                 </configuration>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.5.3</version>
+                <configuration>
+                    <createDependencyReducedPom>false</createDependencyReducedPom>
+                    <relocations>
+                        <relocation>
+                            <pattern>org.bstats</pattern>
+                            <shadedPattern>ru.stepanyaa.casinoRoulette.bstats</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>dev.faststats</pattern>
+                            <shadedPattern>ru.stepanyaa.casinoRoulette.libs.faststats</shadedPattern>
+                        </relocation>
+                        <!-- Sponge already exports Gson as a module. Relocate the bundled
+                             copy so the plugin does not export com.google.gson packages. -->
+                        <relocation>
+                            <pattern>com.google.gson</pattern>
+                            <shadedPattern>ru.stepanyaa.casinoRoulette.libs.gson</shadedPattern>
+                        </relocation>
+                        <!--
+                          SnakeYAML is relocated because Bukkit ships its own copy on the
+                          server classpath. Without relocation the plugin would silently
+                          bind to whichever version the core happens to provide, and the
+                          comment-preserving config layer depends on a known version.
+                        -->
+                        <relocation>
+                            <pattern>org.yaml.snakeyaml</pattern>
+                            <shadedPattern>ru.stepanyaa.casinoRoulette.libs.snakeyaml</shadedPattern>
+                        </relocation>
+                    </relocations>
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                                <exclude>module-info.class</exclude>
+                                <!-- Sponge provides JSpecify; never bundle a second copy. -->
+                                <exclude>org/jspecify/**</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -42,10 +100,19 @@
                 </executions>
             </plugin>
         </plugins>
+
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <!--
+                  plugin.yml (Bukkit) and META-INF/sponge_plugins.json (Sponge) both ship
+                  in the same jar. Each platform reads its own descriptor and ignores the
+                  other, which is what allows one file to start on six cores.
+                -->
+                <includes>
+                    <include>**/*</include>
+                </includes>
             </resource>
         </resources>
     </build>
@@ -56,6 +123,10 @@
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
         <repository>
+            <id>placeholderapi</id>
+            <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
+        </repository>
+        <repository>
             <id>essentialsx</id>
             <url>https://repo.essentialsx.net/releases/</url>
         </repository>
@@ -63,15 +134,63 @@
             <id>jitpack</id>
             <url>https://jitpack.io</url>
         </repository>
+        <repository>
+            <id>faststats-releases</id>
+            <url>https://repo.faststats.dev/releases</url>
+        </repository>
+        <repository>
+            <id>sponge-releases</id>
+            <url>https://repo.spongepowered.org/repository/maven-public/</url>
+        </repository>
     </repositories>
 
     <dependencies>
+        <!-- Compile-only: supplied by Sponge at runtime, never shaded into the JAR. -->
+        <dependency>
+            <groupId>org.spongepowered</groupId>
+            <artifactId>spongeapi</artifactId>
+            <version>12.0.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <version>5.0.1</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>dev.faststats.metrics.j8</groupId>
+            <artifactId>bukkit</artifactId>
+            <version>0.28.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bstats</groupId>
+            <artifactId>bstats-bukkit</artifactId>
+            <version>3.2.1</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <!--
+          Spigot-API is the lowest common denominator of the whole Bukkit family.
+          Paper, Purpur and Folia are all binary compatible with it, and the few APIs
+          unique to them (region schedulers) are reached reflectively from the Folia
+          backend, so no Paper or Folia artifact is needed to build.
+        -->
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
             <version>1.16.5-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
+
+        <!-- Compiled against, never shaded: the server supplies it when installed. -->
+        <dependency>
+            <groupId>me.clip</groupId>
+            <artifactId>placeholderapi</artifactId>
+            <version>2.11.6</version>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.github.MilkBowl</groupId>
             <artifactId>VaultAPI</artifactId>
@@ -84,5 +203,10 @@
             <version>2.21.0</version>
             <scope>provided</scope>
         </dependency>
+
+        <!--
+          Sponge API and Guice are compile-only. Sponge supplies both at runtime;
+          they are never copied into the shared Bukkit/Sponge artifact.
+        -->
     </dependencies>
 </project>

@@ -1,26 +1,4 @@
-/*
-MIT License
 
-Copyright (c) 2026 Stepanyaa
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
 package ru.stepanyaa.casinoRoulette;
 
 import org.bukkit.Bukkit;
@@ -47,11 +25,54 @@ public class RouletteGUI {
         ItemStack filler = plugin.createItem(Material.BLACK_STAINED_GLASS_PANE, " ");
         for (int i = 0; i < 54; i++) inv.setItem(i, filler);
 
-        inv.setItem(22, plugin.createItem(Material.DIAMOND, cm.getMessage("gui.main.play_roulette", "&a&lPLAY ROULETTE")));
-        inv.setItem(29, plugin.createItem(Material.TNT, cm.getMessage("gui.main.slots", "&c&lSLOTS")));
-        inv.setItem(33, plugin.createItem(Material.FIRE_CHARGE, cm.getMessage("gui.main.crash", "&c&lCRASH")));
-        inv.setItem(53, plugin.createItem(Material.BOOK, cm.getMessage("gui.main.stats", "&bStats")));
-        inv.setItem(49, plugin.createItem(Material.GOLD_INGOT, cm.getMessage("gui.main.exchange", "&eExchange")));
+        int topCount = Math.max(0, Math.min(9, cm.getConfig().getInt("main-menu.top-winners-count", 9)));
+        if (!cm.getConfig().getBoolean("main-menu.top-winners-heads", true)) topCount = 0;
+        java.util.List<PlayerStats> topWon = (topCount == 0 || plugin.getLeaderboardManager() == null)
+                ? java.util.Collections.emptyList()
+                : plugin.getLeaderboardManager().top("biggest_win", topCount);
+        for (int i = 0; i < topWon.size(); i++) {
+            PlayerStats st = topWon.get(i);
+            ItemStack topHead = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta topMeta = (SkullMeta) topHead.getItemMeta();
+            org.bukkit.OfflinePlayer op = Bukkit.getOfflinePlayer(st.uuid);
+            topMeta.setOwningPlayer(op);
+            topMeta.setDisplayName(cm.getMessage("gui.main.top_win_name", "&e#%place% &f%player%", "place", i + 1, "player", st.name == null || st.name.isEmpty() ? op.getName() : st.name));
+            topMeta.setLore(cm.getMessageList("gui.main.top_win_lore", Arrays.asList("&7Выиграл на сервере:", "&a%amount% фишек"), "amount", plugin.formatNumber((int)st.totalWon)));
+            topHead.setItemMeta(topMeta);
+            inv.setItem(i, topHead);
+        }
+
+        for (java.util.Map.Entry<Integer, String> entry : plugin.mainMenuActions().entrySet()) {
+            int slot = entry.getKey();
+            switch (entry.getValue()) {
+                case "roulette":
+                    inv.setItem(slot, plugin.createItem(Material.DIAMOND, cm.getMessage("gui.main.play_roulette", "&a&lPLAY ROULETTE")));
+                    break;
+                case "wheel":
+                    inv.setItem(slot, plugin.createItem(Material.ORANGE_WOOL, cm.getMessage("gui.main.wheel", "&6&lКолесо фортуны")));
+                    break;
+                case "daily":
+                    inv.setItem(slot, plugin.createItem(Material.CHEST, cm.getMessage("gui.main.daily", "&a&lFREE FORTUNE WHEEL")));
+                    break;
+                case "slots":
+                    inv.setItem(slot, plugin.createItem(Material.TNT, cm.getMessage("gui.main.slots", "&c&lSLOTS")));
+                    break;
+                case "leaderboards":
+                    inv.setItem(slot, plugin.createItem(Material.NETHER_STAR, cm.getMessage("gui.main.leaderboards", "&e&lЛидерборды")));
+                    break;
+                case "crash":
+                    inv.setItem(slot, plugin.createItem(Material.FIRE_CHARGE, cm.getMessage("gui.main.crash", "&c&lCRASH")));
+                    break;
+                case "exchange":
+                    inv.setItem(slot, plugin.createItem(Material.GOLD_INGOT, cm.getMessage("gui.main.exchange", "&eExchange")));
+                    break;
+                case "stats":
+                    inv.setItem(slot, plugin.createItem(Material.BOOK, cm.getMessage("gui.main.stats", "&bStats")));
+                    break;
+                default:
+                    break;
+            }
+        }
 
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) head.getItemMeta();
@@ -61,7 +82,11 @@ public class RouletteGUI {
                 "chips", plugin.formatNumber(plugin.getPlayerChips().getOrDefault(p.getUniqueId(), 0)),
                 "balance", plugin.formatBalance(p)));
         head.setItemMeta(meta);
-        inv.setItem(45, head);
+        int profileSlot = 45;
+        for (java.util.Map.Entry<Integer, String> entry : plugin.mainMenuActions().entrySet()) {
+            if (entry.getValue().equals("profile")) { profileSlot = entry.getKey(); break; }
+        }
+        inv.setItem(profileSlot, head);
 
         p.openInventory(inv);
     }
@@ -167,6 +192,7 @@ public class RouletteGUI {
 
     public void handleExchangeMenuClick(Player p, InventoryClickEvent e) {
         int slot = e.getSlot();
+        plugin.playClickSound(p);
         if (slot == 11) openBuyChipsMenu(p);
         else if (slot == 15) openSellChipsMenu(p);
         else if (slot == 26) openMainMenu(p);
@@ -185,10 +211,9 @@ public class RouletteGUI {
             int cost = (slot == 10) ? Math.max(10, minEx * 1) : (slot == 11) ? Math.max(100, minEx * 10) : Math.max(1000, minEx * 50);
             int chipsGain = (int) (cost * (1 - tax));
 
-            if (plugin.hasEnoughBalance(p, cost)) {
-                plugin.withdrawBalance(p, cost);
+            if (plugin.withdrawBalance(p, cost)) {
                 plugin.getPlayerChips().put(uuid, plugin.getPlayerChips().getOrDefault(uuid, 0) + chipsGain);
-                p.sendMessage(cm.getMessage("messages.prefix", "&7[&6Casino&7] ") + cm.getMessage("messages.exchange.buy_success", "&aPurchased", "chips", chipsGain, "coins", cost));
+                p.sendMessage(cm.getMessage("messages.prefix", "&7[&6Casino&7] ") + cm.getMessage("messages.exchange.buy_success", "&aPurchased %chips% chips for %coins% %currency%.", "chips", chipsGain, "coins", cost, "currency", plugin.getCurrencyName()));
                 p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
                 openBuyChipsMenu(p);
             } else p.sendMessage(cm.getMessage("messages.prefix", "&7[&6Casino&7] ") + cm.getMessage("messages.insufficient_funds", "&cNo funds!"));
@@ -218,9 +243,14 @@ public class RouletteGUI {
             int monetGain = (int) (chipsCost * (1 - tax));
 
             if (plugin.getPlayerChips().getOrDefault(uuid, 0) >= chipsCost) {
-                plugin.getPlayerChips().put(uuid, plugin.getPlayerChips().get(uuid) - chipsCost);
-                plugin.depositBalance(p, monetGain);
-                p.sendMessage(cm.getMessage("messages.prefix", "&7[&6Casino&7] ") + cm.getMessage("messages.exchange.sell_success", "&aSold", "chips", chipsCost, "coins", monetGain));
+                int before = plugin.getPlayerChips().getOrDefault(uuid, 0);
+                plugin.getPlayerChips().put(uuid, before - chipsCost);
+                if (!plugin.depositBalance(p, monetGain)) {
+                    plugin.getPlayerChips().put(uuid, before);
+                    p.sendMessage(cm.getMessage("messages.prefix", "&7[&6Casino&7] ") + cm.getMessage("messages.economy_unavailable", "&cEconomy is unavailable, your chips were returned."));
+                    return;
+                }
+                p.sendMessage(cm.getMessage("messages.prefix", "&7[&6Casino&7] ") + cm.getMessage("messages.exchange.sell_success", "&aSold %chips% chips for %coins% %currency%.", "chips", chipsCost, "coins", monetGain, "currency", plugin.getCurrencyName()));
                 p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
                 openSellChipsMenu(p);
             } else p.sendMessage(cm.getMessage("messages.prefix", "&7[&6Casino&7] ") + cm.getMessage("messages.no_chips", "&cNo chips!"));

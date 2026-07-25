@@ -1,0 +1,15 @@
+leaderboard:
+  update-time: 300
+gui:
+  title: "&8✦ &6%category% &8✦"
+  rows: 21
+categories:
+  money: "💰 Richest players"
+  biggest_win: "⭐ Biggest win"
+  biggest_loss: "☠ Biggest loss"
+  bets: "🎲 Most bets"
+  games: "⌚ Most games"
+  wins: "🏆 Most wins"
+  daily: "🎁 Daily wheel uses"
+  wheel: "🎡 Fortune wheel spins"
+  chips_bought: "🪙 Chips purchased"

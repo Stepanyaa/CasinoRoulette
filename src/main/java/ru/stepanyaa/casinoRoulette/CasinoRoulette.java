@@ -1,32 +1,13 @@
-/*
-MIT License
-
-Copyright (c) 2026 Stepanyaa
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
 package ru.stepanyaa.casinoRoulette;
 
+import dev.faststats.ErrorTracker;
+import dev.faststats.bukkit.BukkitContext;
+import dev.faststats.data.Metric;
 import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -41,18 +22,43 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitRunnable;
+import ru.stepanyaa.casinoRoulette.bootstrap.CasinoCore;
+import ru.stepanyaa.casinoRoulette.platform.PlatformAdapter;
+import ru.stepanyaa.casinoRoulette.platform.PlatformFactory;
+import ru.stepanyaa.casinoRoulette.platform.impl.bukkit.AbstractBukkitAdapter;
+import ru.stepanyaa.casinoRoulette.scheduler.CasinoScheduler;
+import ru.stepanyaa.casinoRoulette.stats.CoreStatsSource;
+import ru.stepanyaa.casinoRoulette.scheduler.CasinoTask;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecutor {
+public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
+    public static final ErrorTracker ERROR_TRACKER = ErrorTracker.contextAware();
+    private final AtomicInteger gameCount = new AtomicInteger();
+
+    private final BukkitContext context = new BukkitContext.Factory(this, "7eeb807d660afc63f69815ea95be83e2")
+            .errorTrackerService(ERROR_TRACKER)
+            .metrics(factory -> factory
+                    .addMetric(Metric.number("game_count", gameCount::get))
+                    .addMetric(Metric.string("server_version", () -> "1.0.0"))
+
+                    .onFlush(() -> gameCount.set(0))
+
+                    .create())
+            .create();
+
     private Object economy;
     private Object permission;
     private final Random random = new Random();
 
     private ConfigManager configManager;
-    private SlotMachine slotMachine;
-    private CrashGame crashGame;
-    private RouletteGUI gui;
+
+    private BukkitGameBridge bridge;
+
+    private ru.stepanyaa.casinoRoulette.game.GameHub games;
+
+    private RouletteGUI legacyGui;
+    private LeaderboardManager legacyLeaderboardManager;
 
     private final Map<UUID, Integer> playerChips = new HashMap<>();
     private final Map<UUID, Integer> totalWon = new HashMap<>();
@@ -67,12 +73,13 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
     private final Map<UUID, Integer> currentBetAmount = new HashMap<>();
     private final LinkedList<Integer> history = new LinkedList<>();
     private DatabaseManager db;
+    private final java.util.Map<String, ExtraConfig> extraConfigs = new java.util.HashMap<>();
 
     public enum GameState { WAITING, SPINNING }
     public GameState gameState = GameState.WAITING;
     public int timer = 30;
     private int timerDuration = 30;
-    private BukkitRunnable gameTask;
+    private CasinoTask gameTask;
 
     private int payoutNumber = 36;
     private int payoutColor = 2;
@@ -89,6 +96,9 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
     private boolean rouletteEnabled = true;
     private boolean slotsEnabled = true;
     private boolean crashEnabled = true;
+    private boolean wheelEnabled = true;
+    private boolean dailyWheelEnabled = true;
+    private boolean leaderboardsEnabled = true;
 
     private boolean isConfigured = false;
     private String economyMode = "VAULT";
@@ -97,21 +107,41 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
 
     private final Map<UUID, String> awaitingInput = new HashMap<>();
 
+    private final Map<UUID, Integer> lastWin = new HashMap<>();
+
+    private final Map<UUID, Long> biggestWin = new HashMap<>();
+
+    private PlatformAdapter adapter;
+    private CasinoCore core;
+    private CoreStatsSource statsSource;
+
     @Override
     public void onEnable() {
+        saveDefaultConfig();
+
+        this.adapter = PlatformFactory.createBukkit(this, getLogger());
+        this.core = new CasinoCore(adapter);
+        this.statsSource = new CoreStatsSource(this);
+        this.core.start(((AbstractBukkitAdapter) adapter).placeholderService(), statsSource);
+
         configManager = new ConfigManager(this);
         loadConfigValues();
         db = new DatabaseManager(this);
+        for (String f : new String[]{"leaderboard.yml","wheel.yml","dailywheel.yml","menus.yml"}) extraConfigs.put(f, new ExtraConfig(this, f));
+
+        legacyGui = new RouletteGUI(this);
+        legacyLeaderboardManager = new LeaderboardManager(this);
 
         setupEconomy();
         setupPermissions();
 
-        gui = new RouletteGUI(this);
-        slotMachine = new SlotMachine(this);
-        crashGame = new CrashGame(this);
+        bridge = new BukkitGameBridge(this);
+        games = core.startGames(bridge, bridge, bridge);
 
         getServer().getPluginManager().registerEvents(this, this);
         getCommand("casino").setExecutor(this);
+        getCommand("casino").setTabCompleter(this);
+        if (getCommand("dailywheel") != null) getCommand("dailywheel").setExecutor(this);
 
         if (checkForUpdates) {
             new UpdateChecker(this).checkForUpdates();
@@ -119,10 +149,10 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
 
         if (!isConfigured) {
             if (!checkAndAutoConfigure(null)) {
-                Bukkit.getScheduler().runTaskLater(this, this::sendSetupWizardToAdmins, 20L);
+                CasinoScheduler.delay(20L, this::sendSetupWizardToAdmins);
             }
         }
-
+        context.ready();
         getLogger().info("CasinoRoulette v" + getDescription().getVersion() + " enabled!");
     }
 
@@ -145,7 +175,11 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         for (UUID uuid : all) {
             saveSpecificPlayer(uuid);
         }
+        context.shutdown();
         if (gameTask != null) gameTask.cancel();
+        if (db != null) db.close();
+
+        if (core != null) core.stop();
     }
 
     @EventHandler
@@ -162,13 +196,17 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
     public void onJoin(org.bukkit.event.player.PlayerJoinEvent e) {
         Player p = e.getPlayer();
         db.loadPlayer(p.getUniqueId(), this);
+        db.setName(p.getUniqueId(), p.getName());
+
+        final UUID joined = p.getUniqueId();
+        CasinoScheduler.async(() -> biggestWin.put(joined, db.getStat(joined, "biggest_win")));
 
         if (!isConfigured && p.hasPermission("casino.admin")) {
-            Bukkit.getScheduler().runTaskLater(this, () -> {
+            CasinoScheduler.delayAtEntity(p, 20L, () -> {
                 if (!checkAndAutoConfigure(p)) {
                     sendSetupMessage(p);
                 }
-            }, 20L);
+            });
         }
     }
 
@@ -182,25 +220,27 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         } catch (NoSuchMethodException ignored) {}
 
         boolean ecoReady = setupEconomy();
+        if (!ecoReady) {
 
-        if (!hasSpigot || !ecoReady) {
-            configManager.getConfig().set("settings.economy-mode", "ITEM");
-            configManager.getConfig().set("settings.is-configured", true);
-            configManager.saveConfig();
-            loadConfigValues();
-            isConfigured = true;
-
-            String msg = configManager.getMessage("messages.auto_setup", "&e[CasinoRoulette] &aAutomatic setup complete! Selected ITEM mode (because Vault was not found or clean Bukkit is used).");
-
-            if (adminToNotify != null && adminToNotify.isOnline()) {
-                adminToNotify.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
-            } else {
-                getLogger().info(ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', msg)));
-            }
-            return true;
+            return false;
         }
 
-        return false;
+        isConfigured = true;
+        configManager.getConfig().set("settings.is-configured", true);
+        if (configManager.getConfig().getString("settings.economy-mode") == null) {
+            configManager.getConfig().set("settings.economy-mode", economyMode);
+        }
+        configManager.saveConfig();
+
+        String done = "CasinoRoulette configured automatically: economy mode " + economyMode
+                + (hasSpigot ? "" : " (plain-text setup messages: no Spigot chat API)");
+        getLogger().info(done);
+        if (adminToNotify != null && adminToNotify.isOnline()) {
+            adminToNotify.sendMessage(configManager.getMessage("messages.setup.auto_done",
+                    "&a[CasinoRoulette] &7Setup completed automatically. Economy: &f%mode%",
+                    "mode", economyMode));
+        }
+        return true;
     }
 
     public void saveSpecificPlayer(UUID uuid) {
@@ -237,6 +277,9 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         rouletteEnabled = config.getBoolean("roulette.enabled", true);
         slotsEnabled = config.getBoolean("slots.enabled", true);
         crashEnabled = config.getBoolean("crash.enabled", true);
+        wheelEnabled = config.getBoolean("features.fortune-wheel", true);
+        dailyWheelEnabled = config.getBoolean("features.free-wheel", true);
+        leaderboardsEnabled = config.getBoolean("features.leaderboards", true);
 
         timerDuration = config.getInt("roulette.timer_duration", 30);
         timer = timerDuration;
@@ -246,10 +289,11 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         payoutZero = config.getInt("roulette.payouts.zero", 36);
         commissionPercent = config.getDouble("settings.commission_percent", 10.0);
 
-        String modeKey = economyMode.equalsIgnoreCase("VAULT") ? "vault" : "item";
-        minExchange = config.getInt("economy." + modeKey + ".min_exchange", economyMode.equalsIgnoreCase("VAULT") ? 100 : 10);
-        minBet = config.getInt("economy." + modeKey + ".min_bet", economyMode.equalsIgnoreCase("VAULT") ? 1000 : 10);
-        maxBet = config.getInt("economy." + modeKey + ".max_bet", economyMode.equalsIgnoreCase("VAULT") ? 10000 : 1000);
+        boolean itemMode = isItemMode();
+        String modeKey = itemMode ? "item" : "vault";
+        minExchange = config.getInt("economy." + modeKey + ".min_exchange", itemMode ? 10 : 100);
+        minBet = config.getInt("economy." + modeKey + ".min_bet", itemMode ? 10 : 1000);
+        maxBet = config.getInt("economy." + modeKey + ".max_bet", itemMode ? 1000 : 10000);
         checkForUpdates = config.getBoolean("check-for-updates", true);
 
         selectionLimits.clear();
@@ -259,7 +303,7 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             }
         }
         selectionLimits.putIfAbsent("default", 5);
-        if (slotMachine != null) slotMachine.loadConfigValues();
+        if (games != null) games.reload();
     }
 
     private boolean setupPermissions() {
@@ -276,16 +320,10 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         return true;
     }
 
-    /**
-     * Handles player disconnection by refunding any active bets
-     * @param uuid The UUID of the player who disconnected
-     */
     public void handlePlayerDisconnect(UUID uuid) {
-        if (crashGame != null) {
-            crashGame.handlePlayerDisconnect(uuid);
-        }
-        if (slotMachine != null) {
-            slotMachine.handlePlayerDisconnect(uuid);
+        if (games != null) {
+
+            games.forget(uuid);
         }
         if (activeBets.containsKey(uuid)) {
             Map<String, Integer> bets = activeBets.remove(uuid);
@@ -302,193 +340,80 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         awaitingInput.remove(uuid);
     }
 
+    private ru.stepanyaa.casinoRoulette.economy.EconomyProvider economyProvider() {
+        return adapter == null ? null : adapter.economy();
+    }
+
     public boolean hasEnoughBalance(Player p, double amount) {
-        if (economyMode.equalsIgnoreCase("VAULT")) {
-            try {
-                if (economy != null) {
-                    boolean success = false;
-                    boolean result = false;
-                    try {
-                        result = (boolean) economy.getClass().getMethod("has", Player.class, double.class).invoke(economy, p, amount);
-                        success = true;
-                    } catch (NoSuchMethodException e1) {
-                        try {
-                            result = (boolean) economy.getClass().getMethod("has", String.class, double.class).invoke(economy, p.getName(), amount);
-                            success = true;
-                        } catch (NoSuchMethodException e2) {
-                            try {
-                                result = (boolean) economy.getClass().getMethod("has", UUID.class, double.class).invoke(economy, p.getUniqueId(), amount);
-                                success = true;
-                            } catch (NoSuchMethodException e3) {
-                                try {
-                                    result = (boolean) economy.getClass().getMethod("has", OfflinePlayer.class, double.class).invoke(economy, p, amount);
-                                    success = true;
-                                } catch (NoSuchMethodException e4) {
-                                    getLogger().warning("No compatible has() method found in Vault economy provider");
-                                }
-                            }
-                        }
-                    }
-
-                    if (success) {
-                        return result;
-                    }
-                }
-            } catch (Exception e) {
-                getLogger().warning("Failed to check balance via Vault, falling back to item mode: " + e.getMessage());
-                return p.getInventory().containsAtLeast(new ItemStack(itemResource), (int) amount);
-            }
+        if (isItemMode()) {
+            return p.getInventory().containsAtLeast(new ItemStack(itemResource), units(amount));
         }
-        return p.getInventory().containsAtLeast(new ItemStack(itemResource), (int) amount);
+        ru.stepanyaa.casinoRoulette.economy.EconomyProvider provider = economyProvider();
+        if (provider == null) {
+
+            return false;
+        }
+        return provider.has(p.getUniqueId(), amount);
     }
 
-    public void withdrawBalance(Player p, double amount) {
-        if (economyMode.equalsIgnoreCase("VAULT")) {
-            try {
-                if (economy != null) {
-                    boolean success = false;
-
-                    try {
-                        economy.getClass().getMethod("withdrawPlayer", Player.class, double.class).invoke(economy, p, amount);
-                        success = true;
-                    } catch (NoSuchMethodException e1) {
-                        try {
-                            economy.getClass().getMethod("withdrawPlayer", String.class, double.class).invoke(economy, p.getName(), amount);
-                            success = true;
-                        } catch (NoSuchMethodException e2) {
-                            try {
-                                economy.getClass().getMethod("withdrawPlayer", UUID.class, double.class).invoke(economy, p.getUniqueId(), amount);
-                                success = true;
-                            } catch (NoSuchMethodException e3) {
-                                try {
-                                    economy.getClass().getMethod("withdrawPlayer", OfflinePlayer.class, double.class).invoke(economy, p, amount);
-                                    success = true;
-                                } catch (NoSuchMethodException e4) {
-                                    getLogger().warning("No compatible withdrawPlayer() method found in Vault economy provider");
-                                }
-                            }
-                        }
-                    }
-
-                    if (!success) {
-                        getLogger().warning("Failed to withdraw balance via Vault, falling back to item mode");
-                        p.getInventory().removeItem(new ItemStack(itemResource, (int) amount));
-                    }
-                }
-            } catch (Exception e) {
-                getLogger().warning("Failed to withdraw balance via Vault, falling back to item mode: " + e.getMessage());
-                p.getInventory().removeItem(new ItemStack(itemResource, (int) amount));
+    public boolean withdrawBalance(Player p, double amount) {
+        int count = units(amount);
+        if (isItemMode()) {
+            if (count <= 0) {
+                return true;
             }
-        } else {
-            p.getInventory().removeItem(new ItemStack(itemResource, (int) amount));
+            if (!p.getInventory().containsAtLeast(new ItemStack(itemResource), count)) {
+                return false;
+            }
+
+            return p.getInventory().removeItem(new ItemStack(itemResource, count)).isEmpty();
         }
+        ru.stepanyaa.casinoRoulette.economy.EconomyProvider provider = economyProvider();
+        if (provider == null) {
+            return false;
+        }
+        return provider.withdraw(p.getUniqueId(), amount);
     }
 
-    public void depositBalance(Player p, double amount) {
-        if (economyMode.equalsIgnoreCase("VAULT")) {
-            try {
-                if (economy != null) {
-                    boolean success = false;
-
-                    try {
-                        economy.getClass().getMethod("depositPlayer", Player.class, double.class).invoke(economy, p, amount);
-                        success = true;
-                    } catch (NoSuchMethodException e1) {
-                        try {
-                            economy.getClass().getMethod("depositPlayer", String.class, double.class).invoke(economy, p.getName(), amount);
-                            success = true;
-                        } catch (NoSuchMethodException e2) {
-                            try {
-                                economy.getClass().getMethod("depositPlayer", UUID.class, double.class).invoke(economy, p.getUniqueId(), amount);
-                                success = true;
-                            } catch (NoSuchMethodException e3) {
-                                try {
-                                    economy.getClass().getMethod("depositPlayer", OfflinePlayer.class, double.class).invoke(economy, p, amount);
-                                    success = true;
-                                } catch (NoSuchMethodException e4) {
-                                    getLogger().warning("No compatible depositPlayer() method found in Vault economy provider");
-                                }
-                            }
-                        }
-                    }
-
-                    if (!success) {
-                        getLogger().warning("Failed to deposit balance via Vault, falling back to item mode");
-                        ItemStack items = new ItemStack(itemResource, (int) amount);
-                        Map<Integer, ItemStack> overflow = p.getInventory().addItem(items);
-                        if (!overflow.isEmpty()) {
-                            for (ItemStack stack : overflow.values()) {
-                                p.getWorld().dropItemNaturally(p.getLocation(), stack);
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                getLogger().warning("Failed to deposit balance via Vault, falling back to item mode: " + e.getMessage());
-                ItemStack items = new ItemStack(itemResource, (int) amount);
-                Map<Integer, ItemStack> overflow = p.getInventory().addItem(items);
-                if (!overflow.isEmpty()) {
-                    for (ItemStack stack : overflow.values()) {
-                        p.getWorld().dropItemNaturally(p.getLocation(), stack);
-                    }
-                }
+    public boolean depositBalance(Player p, double amount) {
+        if (isItemMode()) {
+            int count = units(amount);
+            if (count <= 0) {
+                return true;
             }
-        } else {
-            ItemStack items = new ItemStack(itemResource, (int) amount);
-            Map<Integer, ItemStack> overflow = p.getInventory().addItem(items);
-            if (!overflow.isEmpty()) {
-                for (ItemStack stack : overflow.values()) {
-                    p.getWorld().dropItemNaturally(p.getLocation(), stack);
-                }
+            Map<Integer, ItemStack> overflow = p.getInventory().addItem(new ItemStack(itemResource, count));
+            for (ItemStack stack : overflow.values()) {
+                p.getWorld().dropItemNaturally(p.getLocation(), stack);
             }
+            return true;
         }
+        ru.stepanyaa.casinoRoulette.economy.EconomyProvider provider = economyProvider();
+        if (provider == null) {
+            return false;
+        }
+        return provider.deposit(p.getUniqueId(), amount);
+    }
+
+    private int units(double amount) {
+        double rounded = Math.ceil(amount - 1.0E-9D);
+        return (int) Math.max(0.0D, Math.min(Integer.MAX_VALUE, rounded));
     }
 
     public String formatBalance(Player p) {
-        if (economyMode.equalsIgnoreCase("VAULT")) {
-            try {
-                if (economy != null) {
-                    double balance = 0;
-                    boolean success = false;
-
-                    try {
-                        balance = (double) economy.getClass().getMethod("getBalance", Player.class).invoke(economy, p);
-                        success = true;
-                    } catch (NoSuchMethodException e1) {
-                        try {
-                            balance = (double) economy.getClass().getMethod("getBalance", String.class).invoke(economy, p.getName());
-                            success = true;
-                        } catch (NoSuchMethodException e2) {
-                            try {
-                                balance = (double) economy.getClass().getMethod("getBalance", UUID.class).invoke(economy, p.getUniqueId());
-                                success = true;
-                            } catch (NoSuchMethodException e3) {
-                                try {
-                                    balance = (double) economy.getClass().getMethod("getBalance", OfflinePlayer.class).invoke(economy, p);
-                                    success = true;
-                                } catch (NoSuchMethodException e4) {
-                                    getLogger().warning("No compatible getBalance method found in Vault economy provider");
-                                }
-                            }
-                        }
-                    }
-
-                    if (success) {
-                        return economy.getClass().getMethod("format", double.class).invoke(economy, balance).toString();
-                    }
+        if (isItemMode()) {
+            int count = 0;
+            for (ItemStack item : p.getInventory().getContents()) {
+                if (item != null && item.getType() == itemResource) {
+                    count += item.getAmount();
                 }
-            } catch (Exception e) {
-                getLogger().warning("Failed to format balance via Vault, falling back to item mode: " + e.getMessage());
             }
+            return count + " " + getCurrencyName();
         }
-
-        int count = 0;
-        for (ItemStack item : p.getInventory().getContents()) {
-            if (item != null && item.getType() == itemResource) {
-                count += item.getAmount();
-            }
+        ru.stepanyaa.casinoRoulette.economy.EconomyProvider provider = economyProvider();
+        if (provider == null) {
+            return "0 " + getCurrencyName();
         }
-        return count + " " + itemResource.name();
+        return provider.format(provider.balance(p.getUniqueId()));
     }
 
     public void sendSetupWizardToAdmins() {
@@ -500,13 +425,28 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         }
     }
 
+    private static Boolean bungeeChatApi;
+
+    private static boolean hasBungeeChatApi() {
+        if (bungeeChatApi == null) {
+            try {
+                Class.forName("net.md_5.bungee.api.chat.BaseComponent");
+                bungeeChatApi = Boolean.TRUE;
+            } catch (Throwable absent) {
+                bungeeChatApi = Boolean.FALSE;
+            }
+        }
+        return bungeeChatApi;
+    }
+
     public void sendSetupMessage(Player p) {
-        if (BungeeSetupMessage.isAvailable()) {
+        if (hasBungeeChatApi()) {
             try {
                 BungeeSetupMessage.sendSetupMessage(this, p);
                 return;
-            } catch (Exception e) {
-                getLogger().warning("Failed to send Bungee setup message, falling back to text: " + e.getMessage());
+            } catch (Throwable e) {
+
+                getLogger().warning("Rich setup message unavailable, falling back to plain text: " + e);
             }
         }
 
@@ -515,34 +455,30 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
 
     private void simpleSetupMessage(Player p) {
         ConfigManager cm = this.configManager;
-        p.sendMessage(cm.getMessage("messages.setup.separator", "&6=============================================", new Object[0]));
-        p.sendMessage(cm.getMessage("messages.setup.wizard_title", "&e [CasinoRoulette Setup Wizard]", new Object[0]));
-        p.sendMessage(cm.getMessage("messages.setup.wizard_subtitle", "&f Let's configure the plugin to your liking!", new Object[0]));
+        p.sendMessage(cm.getMessage("messages.setup.separator", "&6============================================="));
+        p.sendMessage(cm.getMessage("messages.setup.wizard_title", "&e[ CasinoRoulette Setup ]"));
+        p.sendMessage(cm.getMessage("messages.setup.wizard_subtitle", "&fLet's configure the plugin!"));
         p.sendMessage("");
-
         if (this.setupStep == 0) {
-            p.sendMessage(cm.getMessage("messages.setup.step1", "&b Step 1: Select your preferred language:", new Object[0]));
-            p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&a&l[ English ] &7- Type: /casino setup lang en"));
-            p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&c&l[ Russian ] &7- Type: /casino setup lang ru"));
-        } else if (this.setupStep == 1) {
-            p.sendMessage(cm.getMessage("messages.setup.step2", "&b Step 2: Select server currency system:", new Object[0]));
-            boolean vaultInstalled = this.getServer().getPluginManager().getPlugin("Vault") != null;
-            boolean econInstalled = this.setupEconomy();
-            boolean ecoReady = vaultInstalled && econInstalled;
-            String vaultStatus = ecoReady ? cm.getMessage("messages.setup.status_eco_found", "&a (Economy system detected)", new Object[0]) : cm.getMessage("messages.setup.status_eco_missing", "&c (No economy plugins found!)", new Object[0]);
-
-            if (ecoReady) {
-                p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&a&l[ Vault Economy ] &7- Type: /casino setup eco vault"));
-            } else {
-                p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&7&l[ Vault Economy ] &7- Type: /casino setup eco vault"));
+            p.sendMessage(cm.getMessage("messages.setup.step1", "&bStep 1: choose the plugin language:"));
+            String[][] languages = {
+                    {"en", "setup.language.en"}, {"ru", "setup.language.ru"}, {"de", "setup.language.de"},
+                    {"fr", "setup.language.fr"}, {"tr", "setup.language.tr"}, {"pl", "setup.language.pl"}, {"pt_br", "setup.language.pt_br"}
+            };
+            for (String[] lang : languages) {
+                p.sendMessage(cm.getMessage("messages." + lang[1], "&e[ " + lang[0] + " ]") + " " +
+                        cm.getMessage("messages.setup.command_hint", "&7/casino setup %type% %value%", "type", "lang", "value", lang[0]));
             }
-            p.sendMessage(cm.getMessage("messages.setup.status", "&8   Status: %status%", new Object[]{"status", vaultStatus}));
-            p.sendMessage("");
-            p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&6&l[ Item Resource ] &7- Type: /casino setup eco item"));
-            p.sendMessage(cm.getMessage("messages.setup.status", "&8   Status: %status%", new Object[]{"status", cm.getMessage("messages.setup.status_item", "&a(Always available - customizable in config.yml)", new Object[0])}));
+        } else if (this.setupStep == 1) {
+            p.sendMessage(cm.getMessage("messages.setup.step2", "&bStep 2: choose the server currency system:"));
+            boolean vaultInstalled = this.getServer().getPluginManager().getPlugin("Vault") != null;
+            boolean ecoReady = vaultInstalled && this.setupEconomy();
+            p.sendMessage(cm.getMessage(ecoReady ? "messages.setup.eco_vault" : "messages.setup.eco_vault_disabled", ecoReady ? "&a&l[ Vault Economy ]" : "&7&l[ Vault Economy ]") + " " +
+                    cm.getMessage("messages.setup.command_hint", "&7/casino setup %type% %value%", "type", "eco", "value", "vault"));
+            p.sendMessage(cm.getMessage("messages.setup.eco_item", "&6&l[ Item Resource ]") + " " +
+                    cm.getMessage("messages.setup.command_hint", "&7/casino setup %type% %value%", "type", "eco", "value", "item"));
         }
-
-        p.sendMessage(cm.getMessage("messages.setup.separator", "&6=============================================", new Object[0]));
+        p.sendMessage(cm.getMessage("messages.setup.separator", "&6============================================="));
     }
 
     private void sendClickableMessage(Player player, String text, String hoverText, String command) {
@@ -550,10 +486,15 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
     }
 
     public void logGameResult(UUID uuid, int bet, int payout, boolean isWin) {
+        if (payout > 0) db.incrementStat(uuid, "biggest_win", payout, true);
+        if (!isWin) db.incrementStat(uuid, "biggest_loss", bet, true);
+        db.incrementStat(uuid, "bets", 1, false);
         totalRounds.put(uuid, totalRounds.getOrDefault(uuid, 0) + 1);
         if (isWin) {
             wins.put(uuid, wins.getOrDefault(uuid, 0) + 1);
             totalWon.put(uuid, totalWon.getOrDefault(uuid, 0) + payout);
+            lastWin.put(uuid, payout);
+            if (payout > biggestWin.getOrDefault(uuid, 0L)) biggestWin.put(uuid, (long) payout);
         } else {
             losses.put(uuid, losses.getOrDefault(uuid, 0) + 1);
             totalLost.put(uuid, totalLost.getOrDefault(uuid, 0) + bet);
@@ -569,7 +510,7 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             }
             if (args.length > 2 && args[1].equalsIgnoreCase("lang")) {
                 String selectedLang = args[2].toLowerCase();
-                if (selectedLang.equals("en") || selectedLang.equals("ru")) {
+                if (java.util.Arrays.asList("en","ru","de","fr","tr","pl","pt_br").contains(selectedLang)) {
                     configManager.getConfig().set("lang", selectedLang);
                     configManager.saveConfig();
                     configManager.reload();
@@ -608,8 +549,12 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
 
         if (!isConfigured) {
             if (sender.hasPermission("casino.admin")) {
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage(configManager.getMessage("messages.setup.not_configured", "&cPlugin is not configured yet."));
+                    return true;
+                }
                 if (checkAndAutoConfigure((Player) sender)) {
-                    gui.openMainMenu((Player) sender);
+                    openMainMenu((Player) sender);
                 } else {
                     sendSetupMessage((Player) sender);
                 }
@@ -618,6 +563,13 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             }
             return true;
         }
+
+        if (cmd.getName().equalsIgnoreCase("dailywheel")) { if (!(sender instanceof Player)) { sender.sendMessage(configManager.getMessage("messages.players_only", "&cPlayers only!")); return true; } if (!dailyWheelEnabled) { sender.sendMessage(configManager.getMessage("messages.prefix", "&7[&6Casino&7] ") + configManager.getMessage("messages.game_disabled", "&cThis game is currently disabled!")); return true; } withPlayer((Player) sender, p -> games.daily().open(p)); return true; }
+
+        if (args.length > 0 && (args[0].equalsIgnoreCase("top") || args[0].equalsIgnoreCase("leaderboard"))) { if (!(sender instanceof Player)) { sender.sendMessage(configManager.getMessage("messages.players_only", "&cPlayers only!")); return true; } if (!leaderboardsEnabled) { sender.sendMessage(configManager.getMessage("messages.prefix", "&7[&6Casino&7] ") + configManager.getMessage("messages.game_disabled", "&cThis game is currently disabled!")); return true; } final String category = args.length>1?args[1].toLowerCase():"money"; withPlayer((Player) sender, p -> games.leaderboards().open(p, category)); return true; }
+        if (args.length > 0 && args[0].equalsIgnoreCase("wheel")) { if (!(sender instanceof Player)) { sender.sendMessage(configManager.getMessage("messages.players_only", "&cPlayers only!")); return true; } if (!wheelEnabled) { sender.sendMessage(configManager.getMessage("messages.prefix", "&7[&6Casino&7] ") + configManager.getMessage("messages.game_disabled", "&cThis game is currently disabled!")); return true; } withPlayer((Player) sender, p -> games.wheel().open(p)); return true; }
+        if (args.length > 0 && args[0].equalsIgnoreCase("daily")) { if (!(sender instanceof Player)) { sender.sendMessage(configManager.getMessage("messages.players_only", "&cPlayers only!")); return true; } if (!dailyWheelEnabled) { sender.sendMessage(configManager.getMessage("messages.prefix", "&7[&6Casino&7] ") + configManager.getMessage("messages.game_disabled", "&cThis game is currently disabled!")); return true; } withPlayer((Player) sender, p -> games.daily().open(p)); return true; }
+        if (args.length > 0 && args[0].equalsIgnoreCase("stats") && args.length > 1) { sender.sendMessage(configManager.getMessage("messages.prefix", "&7[&6Casino&7] ")+ db.formatStats(args[1])); return true; }
 
         if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
             if (!sender.hasPermission("casino.reload")) {
@@ -633,80 +585,79 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             return true;
         }
 
-        gui.openMainMenu((Player) sender);
+        openMainMenu((Player) sender);
         return true;
+    }
+
+    public ru.stepanyaa.casinoRoulette.platform.CasinoPlayer wrap(Player player) {
+        if (player == null || adapter == null) return null;
+        return adapter.player(player.getUniqueId()).orElse(null);
+    }
+
+    private void withPlayer(Player player,
+                            java.util.function.Consumer<ru.stepanyaa.casinoRoulette.platform.CasinoPlayer> action) {
+        ru.stepanyaa.casinoRoulette.platform.CasinoPlayer wrapped = wrap(player);
+        if (wrapped != null && games != null) {
+            action.accept(wrapped);
+        }
+    }
+
+    public void openMainMenu(Player player) {
+        withPlayer(player, p -> games.gui().openMainMenu(p));
+    }
+
+    public ru.stepanyaa.casinoRoulette.game.GameHub getGames() {
+        return games;
+    }
+
+    public RouletteGUI getGui() {
+        return legacyGui;
+    }
+
+    public LeaderboardManager getLeaderboardManager() {
+        return legacyLeaderboardManager;
+    }
+
+    @Override
+    public java.util.List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
+        if (!cmd.getName().equalsIgnoreCase("casino")) return java.util.Collections.emptyList();
+        java.util.List<String> base = java.util.Arrays.asList("reload","top","leaderboard","stats","wheel","daily","setup");
+        if (args.length == 1) {
+            java.util.List<String> out = new java.util.ArrayList<>();
+            for (String b : base) if (b.startsWith(args[0].toLowerCase())) out.add(b);
+            return out;
+        }
+        if (args.length == 2 && (args[0].equalsIgnoreCase("top") || args[0].equalsIgnoreCase("leaderboard"))) {
+            return java.util.Arrays.asList("money","wins","bets","games","biggest_win","biggest_loss","daily","wheel","chips_bought");
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("setup") && args[1].equalsIgnoreCase("lang")) {
+            return java.util.Arrays.asList("en","ru","de","fr","tr","pl","pt_br");
+        }
+        return java.util.Collections.emptyList();
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent e) {
-        if (!(e.getWhoClicked() instanceof Player)) return;
-        Player p = (Player) e.getWhoClicked();
-        if (!isConfigured) {
-            e.setCancelled(true);
+        if (isConfigured) {
             return;
         }
-
-        String title = ChatColor.stripColor(e.getView().getTitle());
-        String tMain = ChatColor.stripColor(configManager.getMessage("gui.titles.main_menu", "Casino: Main Menu"));
-        String tExchange = ChatColor.stripColor(configManager.getMessage("gui.titles.exchange", "Casino: Exchange"));
-        String tBuy = ChatColor.stripColor(configManager.getMessage("gui.titles.buy_chips", "Casino: Buy Chips"));
-        String tSell = ChatColor.stripColor(configManager.getMessage("gui.titles.sell_chips", "Casino: Sell Chips"));
-        String tRoulette = ChatColor.stripColor(configManager.getMessage("gui.titles.roulette", "Roulette Room"));
-        String tStats = ChatColor.stripColor(configManager.getMessage("gui.titles.stats", "Detailed Statistics"));
-        String tSlots = ChatColor.stripColor(configManager.getMessage("gui.titles.slots", "Slot Machine"));
-        String tCrash = ChatColor.stripColor(configManager.getMessage("gui.titles.crash", "Crash Game"));
-
-        if (title.equals(tMain) || title.equals(tRoulette) || title.equals(tExchange) ||
-                title.equals(tBuy) || title.equals(tSell) || title.equals(tStats) ||
-                title.equals(tSlots) || title.equals(tCrash)) {
-
+        String guiId = ru.stepanyaa.casinoRoulette.platform.impl.bukkit.BukkitCasinoInventory
+                .guiIdOf(e.getView().getTopInventory());
+        if (guiId != null) {
             e.setCancelled(true);
-            if (e.getCurrentItem() == null || e.getCurrentItem().getType() == Material.AIR) return;
-
-            if (title.equals(tMain)) {
-                if (e.getSlot() == 22) {
-                    if (!rouletteEnabled) {
-                        p.sendMessage(configManager.getMessage("messages.prefix", "&7[&6Casino&7] ") + configManager.getMessage("messages.game_disabled", "&cThis game is currently disabled!"));
-                        return;
-                    }
-                    gui.openGameMenu(p);
-                }
-                else if (e.getSlot() == 49) gui.openExchangeMenu(p);
-                else if (e.getSlot() == 53) gui.openDetailedStats(p);
-                else if (e.getSlot() == 29) {
-                    if (!slotsEnabled) {
-                        p.sendMessage(configManager.getMessage("messages.prefix", "&7[&6Casino&7] ") + configManager.getMessage("messages.game_disabled", "&cThis game is currently disabled!"));
-                        return;
-                    }
-                    slotMachine.openSlotMachine(p);
-                }
-                else if (e.getSlot() == 33) {
-                    if (!crashEnabled) {
-                        p.sendMessage(configManager.getMessage("messages.prefix", "&7[&6Casino&7] ") + configManager.getMessage("messages.game_disabled", "&cThis game is currently disabled!"));
-                        return;
-                    }
-                    crashGame.openCrashMenu(p);
-                }
-            }
-            else if (title.equals(tExchange)) gui.handleExchangeMenuClick(p, e);
-            else if (title.equals(tBuy)) gui.handleBuyMenuClick(p, e);
-            else if (title.equals(tSell)) gui.handleSellMenuClick(p, e);
-            else if (title.equals(tRoulette)) gui.handleGameClick(p, e);
-            else if (title.equals(tStats) && e.getSlot() == 26) gui.openMainMenu(p);
-            else if (title.equals(tSlots)) slotMachine.handleClick(e);
-            else if (title.equals(tCrash)) crashGame.handleClick(e);
         }
     }
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent e) {
-        String title = ChatColor.stripColor(e.getView().getTitle());
-        String tRoulette = ChatColor.stripColor(configManager.getMessage("gui.titles.roulette", "Roulette Room"));
-        if (title.equals(tRoulette)) {
-            UUID uuid = e.getPlayer().getUniqueId();
-            playersInGame.remove(uuid);
-            activeGameInventories.remove(uuid);
+        String guiId = ru.stepanyaa.casinoRoulette.platform.impl.bukkit.BukkitCasinoInventory
+                .guiIdOf(e.getInventory());
+        if (!ru.stepanyaa.casinoRoulette.game.RouletteGUI.GUI_TABLE.equals(guiId)) {
+            return;
         }
+        UUID uuid = e.getPlayer().getUniqueId();
+        playersInGame.remove(uuid);
+        activeGameInventories.remove(uuid);
     }
 
     @EventHandler
@@ -728,7 +679,7 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
 
         e.setCancelled(true);
 
-        Bukkit.getScheduler().runTask(this, () -> {
+        CasinoScheduler.atEntity(p, () -> {
             try {
                 int amount = Integer.parseInt(input);
                 if (amount < minExchange) {
@@ -742,9 +693,10 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
 
                 if (mode.equals("buy")) {
                     int chipsGain = (int) (amount * (1 - commission));
-                    if (hasEnoughBalance(p, amount)) {
-                        withdrawBalance(p, amount);
+
+                    if (withdrawBalance(p, amount)) {
                         playerChips.put(uuid, currentChips + chipsGain);
+                        db.incrementStat(uuid, "chips_bought", chipsGain, false);
                         p.sendMessage(prefix + configManager.getMessage("messages.exchange.buy_success", "&aPurchased %chips% chips for %coins% %currency%.", "chips", chipsGain, "coins", amount, "currency", currency));
                         p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
                     } else {
@@ -755,7 +707,14 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
                     int monetGain = (int) (amount * (1 - commission));
                     if (currentChips >= amount) {
                         playerChips.put(uuid, currentChips - amount);
-                        depositBalance(p, monetGain);
+                        if (!depositBalance(p, monetGain)) {
+
+                            playerChips.put(uuid, currentChips);
+                            p.sendMessage(prefix + configManager.getMessage("messages.economy_unavailable",
+                                    "&cEconomy is unavailable, your chips were returned."));
+                            awaitingInput.remove(uuid);
+                            return;
+                        }
                         p.sendMessage(prefix + configManager.getMessage("messages.exchange.sell_success", "&aSold %chips% chips for %coins% %currency%.", "chips", amount, "coins", monetGain, "currency", currency));
                         p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
                     } else {
@@ -786,64 +745,76 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         }
     }
 
-    private void startGameTask() {
-        gameTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (playersInGame.isEmpty()) {
-                    cancel();
-                    gameState = GameState.WAITING;
-                    timer = timerDuration;
-                    return;
-                }
-                if (gameState == GameState.WAITING) {
-                    timer--;
-                    String clockName = configManager.getMessage("gui.roulette.accepting", "&6Accepting Bets...");
-                    String clockLore = configManager.getMessage("gui.roulette.spinning_in", "&eSpinning in: %time%s", "time", timer);
-                    ItemStack clock = createItem(Material.CLOCK, clockName, clockLore);
+    private static final int[] WHEEL = {0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26};
 
-                    for (Inventory inv : activeGameInventories.values()) inv.setItem(4, clock);
-                    if (timer <= 0) {
-                        gameState = GameState.SPINNING;
-                        startSpinAnimation();
-                        cancel();
-                    }
+    private void startGameTask() {
+
+        gameTask = CasinoScheduler.timer(0L, 20L, task -> {
+            if (playersInGame.isEmpty()) {
+                task.cancel();
+                gameState = GameState.WAITING;
+                timer = timerDuration;
+                return;
+            }
+            if (gameState == GameState.WAITING) {
+                timer--;
+                String clockName = configManager.getMessage("gui.roulette.accepting", "&6Accepting Bets...");
+                String clockLore = configManager.getMessage("gui.roulette.spinning_in", "&eSpinning in: %time%s", "time", timer);
+                final ItemStack clock = createItem(Material.CLOCK, clockName, clockLore);
+
+                forEachViewer((viewer, inventory) -> inventory.setItem(4, clock));
+
+                if (timer <= 0) {
+                    gameState = GameState.SPINNING;
+                    startSpinAnimation();
+                    task.cancel();
                 }
             }
-        };
-        gameTask.runTaskTimer(this, 0L, 20L);
+        });
+    }
+
+    private void forEachViewer(java.util.function.BiConsumer<Player, Inventory> action) {
+        for (UUID uuid : new java.util.ArrayList<>(playersInGame)) {
+            final Player viewer = Bukkit.getPlayer(uuid);
+            final Inventory inventory = activeGameInventories.get(uuid);
+            if (viewer == null || inventory == null) continue;
+            CasinoScheduler.atEntity(viewer, () -> action.accept(viewer, inventory));
+        }
     }
 
     private void startSpinAnimation() {
-        new BukkitRunnable() {
-            int tick = 0;
-            final int[] wheel = {0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26};
-            int offset = random.nextInt(wheel.length);
-            @Override
-            public void run() {
-                tick++;
-                offset = (offset + 1) % wheel.length;
-                for (Inventory inv : activeGameInventories.values()) {
-                    for (int i = 0; i < 9; i++) {
-                        int num = wheel[(offset + i) % wheel.length];
-                        Material mat = num == 0 ? Material.LIME_STAINED_GLASS_PANE :
-                                isNumRed(num) ? Material.RED_STAINED_GLASS_PANE : Material.BLACK_STAINED_GLASS_PANE;
-                        if (i == 4) mat = num == 0 ? Material.LIME_CONCRETE :
-                                isNumRed(num) ? Material.RED_CONCRETE : Material.BLACK_CONCRETE;
-                        inv.setItem(i, createItem(mat, (i==4 ? ChatColor.BOLD : "") + String.valueOf(num)));
-                    }
-                }
-                for (UUID uuid : playersInGame) {
-                    Player p = Bukkit.getPlayer(uuid);
-                    if (p != null) p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 1.2f + tick * 0.02f);
-                }
-                if (tick > 40) {
-                    cancel();
-                    int winningNumber = wheel[(offset + 4) % wheel.length];
-                    processResults(winningNumber);
-                }
+
+        final int[] state = {0, random.nextInt(WHEEL.length)};
+
+        CasinoScheduler.timer(0L, 2L, task -> {
+            state[0]++;
+            state[1] = (state[1] + 1) % WHEEL.length;
+            final int tick = state[0];
+            final int offset = state[1];
+
+            forEachViewer((viewer, inventory) -> {
+                renderWheelStrip(inventory, offset);
+                viewer.playSound(viewer.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING,
+                        0.8f, Math.min(2.0f, 1.2f + tick * 0.02f));
+            });
+
+            if (tick > 40) {
+                task.cancel();
+                int winningNumber = WHEEL[(offset + 4) % WHEEL.length];
+                processResults(winningNumber);
             }
-        }.runTaskTimer(this, 0L, 2L);
+        });
+    }
+
+    private void renderWheelStrip(Inventory inventory, int offset) {
+        for (int i = 0; i < 9; i++) {
+            int num = WHEEL[(offset + i) % WHEEL.length];
+            Material mat = num == 0 ? Material.LIME_STAINED_GLASS_PANE :
+                    isNumRed(num) ? Material.RED_STAINED_GLASS_PANE : Material.BLACK_STAINED_GLASS_PANE;
+            if (i == 4) mat = num == 0 ? Material.LIME_CONCRETE :
+                    isNumRed(num) ? Material.RED_CONCRETE : Material.BLACK_CONCRETE;
+            inventory.setItem(i, createItem(mat, (i == 4 ? ChatColor.BOLD : "") + String.valueOf(num)));
+        }
     }
 
     private void processResults(int winningNumber) {
@@ -895,7 +866,7 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             }
 
             if (p != null && activeGameInventories.containsKey(uuid)) {
-                gui.updateGameInventory(p, activeGameInventories.get(uuid));
+                games.gui().updateTable(uuid);
             }
         }
 
@@ -904,7 +875,7 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
                 Player p = Bukkit.getPlayer(uuid);
                 if (p != null) {
                     p.sendMessage(prefix + configManager.getMessage("messages.roulette.spectate", "&7Result: %color%%number% (%colorname%)", "color", color.toString(), "number", winningNumber, "colorname", colorName));
-                    gui.updateGameInventory(p, activeGameInventories.get(uuid));
+                    games.gui().updateTable(uuid);
                 }
             }
         }
@@ -955,25 +926,18 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             return customCurrencyName;
         }
 
-        if (economyMode.equalsIgnoreCase("VAULT")) {
-            if (economy != null) {
-                try {
-                    String currencyName = (String) economy.getClass().getMethod("currencyNamePlural").invoke(economy);
-                    if (currencyName != null && !currencyName.isEmpty()) {
-                        return currencyName;
-                    }
-                    currencyName = (String) economy.getClass().getMethod("currencyNameSingular").invoke(economy);
-                    if (currencyName != null && !currencyName.isEmpty()) {
-                        return currencyName;
-                    }
-                } catch (Exception e) {
-                    getLogger().warning("Failed to get currency name from Vault, using fallback: " + e.getMessage());
-                }
-            }
-            return configManager.getMessage("common.currency_name", "coins");
-        } else {
+        if (isItemMode()) {
             return itemResource.name().toLowerCase();
         }
+
+        ru.stepanyaa.casinoRoulette.economy.EconomyProvider provider = economyProvider();
+        if (provider != null) {
+            String name = provider.currencyName();
+            if (name != null && !name.trim().isEmpty()) {
+                return name.trim();
+            }
+        }
+        return configManager.getMessage("common.currency_name", "coins");
     }
 
     public ConfigManager getConfigManager() { return configManager; }
@@ -983,7 +947,112 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
     public Map<UUID, Integer> getWins() { return wins; }
     public Map<UUID, Integer> getLosses() { return losses; }
     public Map<UUID, Integer> getTotalRounds() { return totalRounds; }
+    public Map<UUID, Integer> getLastWin() { return lastWin; }
+    public Map<UUID, Long> getBiggestWin() { return biggestWin; }
+    public PlatformAdapter getAdapter() { return adapter; }
+    public CasinoCore getCore() { return core; }
     public Object getEconomy() { return economy; }
+    public DatabaseManager getDb() { return db; }
+    public ExtraConfig getExtra(String name) { return extraConfigs.get(name); }
+    public void addChips(UUID uuid, int amount) { playerChips.put(uuid, playerChips.getOrDefault(uuid,0)+amount); }
+    public boolean takeChips(UUID uuid, int amount) { int c=playerChips.getOrDefault(uuid,0); if(c<amount)return false; playerChips.put(uuid,c-amount); return true; }
+
+    private boolean requireEnabled(Player p, boolean enabled) {
+        if (enabled) return true;
+        p.sendMessage(configManager.getMessage("messages.prefix", "&7[&6Casino&7] ")
+                + configManager.getMessage("messages.game_disabled", "&cThis game is currently disabled!"));
+        return false;
+    }
+
+    private static final String[][] MAIN_MENU_BUTTONS = {
+            {"roulette", "roulette-slot", "20"},
+            {"wheel", "fortune-wheel-slot", "22"},
+            {"daily", "daily-casino-slot", "24"},
+            {"slots", "slots-slot", "29"},
+            {"leaderboards", "leaderboards-slot", "31"},
+            {"crash", "crash-slot", "33"},
+            {"profile", "profile-slot", "45"},
+            {"exchange", "exchange-slot", "49"},
+            {"stats", "stats-slot", "53"},
+    };
+
+    private final java.util.Set<String> warnedMenuSlots = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    public java.util.Map<Integer, String> mainMenuActions() {
+        java.util.Map<Integer, String> actions = new java.util.LinkedHashMap<>();
+        org.bukkit.configuration.file.FileConfiguration cfg = configManager.getConfig();
+        for (String[] button : MAIN_MENU_BUTTONS) {
+            String action = button[0];
+            if (action.equals("wheel") && !wheelEnabled) continue;
+            if (action.equals("daily") && !dailyWheelEnabled) continue;
+            if (action.equals("leaderboards") && !leaderboardsEnabled) continue;
+            int fallback = Integer.parseInt(button[2]);
+            int slot = cfg.getInt("main-menu.buttons." + button[1], fallback);
+            if (slot < 0 || slot > 53) {
+                if (warnedMenuSlots.add(action)) {
+                    getLogger().warning("main-menu.buttons." + button[1] + " = " + slot
+                            + " is outside 0-53, using the default slot " + fallback + ".");
+                }
+                slot = fallback;
+            }
+            String taken = actions.get(slot);
+            if (taken != null) {
+                if (warnedMenuSlots.add(action)) {
+                    getLogger().warning("Main menu slot " + slot + " is used by both '" + taken
+                            + "' and '" + action + "'; '" + action + "' was skipped.");
+                }
+                continue;
+            }
+            actions.put(slot, action);
+        }
+        return actions;
+    }
+
+    public boolean isWheelEnabled() { return wheelEnabled; }
+    public boolean isDailyWheelEnabled() { return dailyWheelEnabled; }
+    public boolean isLeaderboardsEnabled() { return leaderboardsEnabled; }
+
+    public boolean isItemMode() {
+        String mode = economyMode == null ? "" : economyMode.trim().toUpperCase(java.util.Locale.ROOT);
+        return mode.equals("ITEM") || mode.equals("ITEMS") || mode.equals("RESOURCE");
+    }
+    public Material getItemResource() { return itemResource; }
+    public int getChips(UUID uuid) { return playerChips.getOrDefault(uuid, 0); }
+    public String getBetCurrencyName() { return isItemMode() ? getCurrencyName() : configManager.getMessage("common.chips", "chips"); }
+    public String formatGameBalance(Player p) {
+        if (isItemMode()) {
+            int c = 0;
+            for (ItemStack it : p.getInventory().getContents()) if (it != null && it.getType() == itemResource) c += it.getAmount();
+            return c + " " + getCurrencyName();
+        }
+        return formatNumber(playerChips.getOrDefault(p.getUniqueId(), 0)) + " " + configManager.getMessage("common.chips", "chips");
+    }
+    public boolean hasGameBalance(Player p, int amount) {
+        if (isItemMode()) return p.getInventory().containsAtLeast(new ItemStack(itemResource), amount);
+        return playerChips.getOrDefault(p.getUniqueId(), 0) >= amount;
+    }
+    public void takeGameBalance(Player p, int amount) {
+        if (isItemMode()) p.getInventory().removeItem(new ItemStack(itemResource, amount));
+        else playerChips.put(p.getUniqueId(), Math.max(0, playerChips.getOrDefault(p.getUniqueId(), 0) - amount));
+    }
+    public void giveGameBalance(Player p, int amount) {
+        if (isItemMode()) {
+            java.util.Map<Integer, ItemStack> overflow = p.getInventory().addItem(new ItemStack(itemResource, amount));
+            for (ItemStack o : overflow.values()) p.getWorld().dropItemNaturally(p.getLocation(), o);
+        } else playerChips.put(p.getUniqueId(), playerChips.getOrDefault(p.getUniqueId(), 0) + amount);
+    }
+    public void playConfiguredSound(Player p, String key, String defName, float pitch) {
+        if (p == null) return;
+        org.bukkit.configuration.file.FileConfiguration cfg = configManager.getConfig();
+        if (!cfg.getBoolean("sounds.enabled", true)) return;
+        String name = cfg.getString("sounds." + key, defName);
+        try { p.playSound(p.getLocation(), Sound.valueOf(name.toUpperCase()), 1f, pitch); } catch (Exception ignored) {}
+    }
+    public void playClickSound(Player p) { playConfiguredSound(p, "click", "UI_BUTTON_CLICK", 1f); }
+    public void playMenuSound(Player p) { playConfiguredSound(p, "open_menu", "BLOCK_CHEST_OPEN", 1f); }
+    public void playSpinSound(Player p, float pitch) { playConfiguredSound(p, "spin", "BLOCK_NOTE_BLOCK_PLING", pitch); }
+    public void playWinSound(Player p) { playConfiguredSound(p, "win", "ENTITY_PLAYER_LEVELUP", 1f); }
+    public void playLoseSound(Player p) { playConfiguredSound(p, "lose", "ENTITY_VILLAGER_NO", 1f); }
     public Set<UUID> getPlayersInGame() { return playersInGame; }
     public Map<UUID, Inventory> getActiveGameInventories() { return activeGameInventories; }
     public Map<UUID, Map<String, Integer>> getActiveBets() { return activeBets; }
@@ -994,7 +1063,6 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
     public Map<UUID, String> getAwaitingInput() { return awaitingInput; }
     public Map<String, Integer> getSelectionLimits() { return selectionLimits; }
     public Object getPermission() { return permission; }
-    public RouletteGUI getGui() { return gui; }
 
     public int getMinBet() { return minBet; }
     public int getMaxBet() { return maxBet; }

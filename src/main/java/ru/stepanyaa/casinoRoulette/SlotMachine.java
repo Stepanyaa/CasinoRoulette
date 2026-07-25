@@ -1,26 +1,4 @@
-/*
-MIT License
 
-Copyright (c) 2026 Stepanyaa
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
 package ru.stepanyaa.casinoRoulette;
 
 import org.bukkit.*;
@@ -29,7 +7,7 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
+import ru.stepanyaa.casinoRoulette.scheduler.CasinoScheduler;
 import java.util.*;
 
 public class SlotMachine {
@@ -56,11 +34,11 @@ public class SlotMachine {
             }
         }
         if (weights.isEmpty()) {
-            weights.put(Material.COAL, 40);      // Very common (40%)
-            weights.put(Material.IRON_INGOT, 25); // Common (25%)
-            weights.put(Material.GOLD_INGOT, 5);  // Rare (5%)
-            weights.put(Material.EMERALD, 3);   // Very rare (3%)
-            weights.put(Material.DIAMOND, 2);    // Extremely rare (2%)
+            weights.put(Material.COAL, 40);
+            weights.put(Material.IRON_INGOT, 25);
+            weights.put(Material.GOLD_INGOT, 5);
+            weights.put(Material.EMERALD, 3);
+            weights.put(Material.DIAMOND, 2);
         }
     }
 
@@ -137,20 +115,17 @@ public class SlotMachine {
 
         inv.setItem(17, plugin.createItem(Material.REDSTONE_BLOCK, cm.getMessage("gui.slots.spinning", "&cSPINNING...")));
 
-        new BukkitRunnable() {
-            int spins = 0;
-
-            @Override
-            public void run() {
-                spins++;
+        final int[] spins = {0};
+        CasinoScheduler.timerAtEntity(p, 0L, 2L, task -> {
+                spins[0]++;
                 List<Material> keys = new ArrayList<>(weights.keySet());
                 for (int i = 10; i <= 16; i++) {
                     inv.setItem(i, plugin.createItem(keys.get(random.nextInt(keys.size())), " "));
                 }
-                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.7f, 0.6f + spins * 0.03f);
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.7f, 0.6f + spins[0] * 0.03f);
 
-                if (spins >= 20) {
-                    cancel();
+                if (spins[0] >= 20) {
+                    task.cancel();
 
                     Material[] rolledSymbols = new Material[7];
                     for (int i = 0; i < 7; i++) {
@@ -192,8 +167,7 @@ public class SlotMachine {
                     int currentChips = plugin.getPlayerChips().getOrDefault(p.getUniqueId(), 0);
                     inv.setItem(20, plugin.createItem(Material.GOLD_NUGGET, cm.getMessage("gui.roulette.your_chips", "&6Chips: %amount%", "amount", plugin.formatNumber(currentChips))));
                 }
-            }
-        }.runTaskTimer(plugin, 0L, 2L);
+        });
     }
 
     public void handlePlayerDisconnect(UUID uuid) {

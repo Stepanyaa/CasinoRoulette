@@ -1,0 +1,41 @@
+settings:
+  cooldown-hours: 24
+  chat-cooldown-message: true
+  # Ticks between animation frames. 1 is smooth; raise it to slow the wheel down.
+  animation-tick: 1
+gui:
+  title: "&6Daily Wheel"
+  spin: "&aSpin"
+# chance = a weight, not a percentage. A reward with chance 30 is drawn half as
+# often as one with chance 60. Set 0 to leave a reward on the wheel as decoration.
+# type: chips | money | item.  money is always paid by the active economy
+# (Vault / PlayerPoints / internal) and is never converted into items.
+# icon: the item shown on the wheel. display: fallback name if untranslated.
+rewards:
+  chips_100:
+    type: chips
+    icon: SUNFLOWER
+    display: "Chips"
+    min: 100
+    max: 100
+    chance: 50
+    message: "&aYou received %amount% chips!"
+    commands: []
+  money_500:
+    type: money
+    icon: GOLD_INGOT
+    display: "Coins"
+    min: 500
+    max: 500
+    chance: 30
+    message: "&aYou received %amount% coins!"
+    commands: []
+  diamond:
+    type: item
+    material: DIAMOND
+    display: "Diamonds"
+    min: 1
+    max: 3
+    chance: 20
+    message: "&bYou received diamonds x%amount%!"
+    commands: []

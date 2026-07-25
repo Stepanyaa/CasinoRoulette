@@ -1,0 +1,246 @@
+# CasinoRoulette language file (fr)
+# Auto-generated - full translations
+
+config-version: 1.2.0
+common:
+  time_short: '%hours%h %minutes%min'
+  back: '&cRetour'
+  awaiting: '&7...'
+  chips: jetons
+  currency_name: pièces
+  currency_name_item: objets
+  bet_size: '&6Mise: %amount%'
+  bet_lore:
+  - '&7Clic gauche/droit pour changer'
+  - '&7Min: %min% | Max: %max%'
+  bet_lore_shift:
+  - '&7Gauche/Droite: +/- pas'
+  - '&7Shift: pas x10'
+gui:
+  titles:
+    main_menu: 'Casino: Menu principal'
+    exchange: 'Casino: Échange'
+    buy_chips: 'Casino: Acheter des jetons'
+    sell_chips: 'Casino: Vendre des jetons'
+    roulette: Roulette
+    stats: Statistiques
+    slots: Machine à sous
+    crash: Crash
+    leaderboards: Classements
+    wheel: Roue de la fortune
+    daily: Roue gratuite
+  main:
+    play_roulette: '&a&lJOUER À LA ROULETTE'
+    slots: '&c&lMACHINE À SOUS'
+    crash: '&c&lCRASH'
+    stats: '&bStatistiques'
+    exchange: '&eÉchange'
+    wheel: '&6&lROUE DE LA FORTUNE'
+    daily: '&a&lROUE GRATUITE'
+    leaderboards: '&e&lCLASSEMENTS'
+    profile_name: '&6Profil'
+    profile_lore:
+    - '&eJetons: &f%chips%'
+    - '&eSolde: &f%balance%'
+    top_win_name: '&e#%place% &f%player%'
+    top_win_lore:
+    - '&7Gagné sur ce serveur:'
+    - '&a%amount% jetons'
+  exchange:
+    buy_btn: '&a&lACHETER'
+    buy_lore: '&7Échanger des %currency% contre des jetons'
+    sell_btn: '&c&lVENDRE'
+    sell_lore: '&7Convertir des jetons en %currency%'
+    commission: '&6Frais: %fee%%'
+  buy:
+    item_name: '&aAcheter %amount%'
+    price: '&7Prix: %price% %currency%'
+    receive: '&eReçu: %chips% jetons'
+    custom: '&aMontant personnalisé'
+    custom_lore: '&7Entrez le montant dans le chat'
+  sell:
+    item_name: '&cVendre %amount%'
+    price: '&7Prix: %price% jetons'
+    receive: '&eReçu: %coins% %currency%'
+    custom: '&cMontant personnalisé'
+    custom_lore: '&7Entrez le montant dans le chat'
+  roulette:
+    accepting: '&6Paris ouverts...'
+    spinning_in: '&eLancement dans: %time%s'
+    in_progress: '&cTOUR EN COURS'
+    bet_placed: '&eMise: %amount%'
+    click_to_bet: '&7Cliquez — miser %amount%'
+    click_to_bet_no_amt: '&7Cliquez pour miser'
+    red: '&cRouge'
+    black: '&8Noir'
+    doz1: '&a1re douzaine'
+    doz2: '&b2e douzaine'
+    doz3: '&63e douzaine'
+    your_chips: '&6Jetons: %amount%'
+    history: '&bHistorique: %history%'
+  stats:
+    title_item: '&6Statistiques'
+    wins: '&eVictoires: %amount%'
+    losses: '&eDéfaites: %amount%'
+    rounds: '&eManches jouées: %amount%'
+    won: '&aTotal gagné: %amount% jetons'
+    lost: '&cTotal perdu: %amount% jetons'
+  slots:
+    spin: '&6TOURNER!'
+    spinning: '&cEN COURS...'
+  crash:
+    place_bet: '&ePLACER LA MISE'
+    place_bet_lore: '&7Montant: %amount%'
+    multiplier: '&6x%multiplier%'
+    awaiting: '&7En attente de mise...'
+    crashed: '&cCrash à x%multiplier%'
+    cashout: '&aRETIRER'
+    cashout_lore: '&eGain: %payout%'
+    click_secure: '&8Cliquez pour sécuriser'
+    already_claimed: '&cDéjà retiré'
+    no_bet: '&7Aucune mise'
+  daily:
+    pointer: '&e&lPrix'
+    pointer_lore: '&7La roue sarrête ici'
+    reward_lore: '&7Chance : &f%chance%%'
+    spinning: '&7La roue tourne...'
+    spin_lore: '&7Gratuit toutes les %hours% h'
+    rewards:
+      chips_100: 'Jetons'
+      money_500: 'Pièces'
+      diamond: 'Diamants'
+    cooldown: '&cTemps d''attente'
+    cooldown_lore: '&7Prochain tour dans: %time%'
+    spin: '&a&lTOURNER'
+  wheel:
+    pointer: '&e&lIndicateur'
+    pointer_lore: '&7Le secteur gagnant s''arrête ici'
+    color: '%selected%&e%color% &7x%multiplier%'
+    color_lore: '&7Cliquez pour choisir'
+    bet: '&6Mise: %amount% %currency%'
+    bet_lore: '&7Clic gauche + | Clic droit -'
+    balance: '&7Solde: %balance%'
+    start: '&aLancer'
+    colors:
+      orange: Orange
+      yellow: Jaune
+      blue: Bleu
+      red: Rouge
+messages:
+  prefix: '&7[&6Casino&7] '
+  reload_success: '&aRechargé!'
+  players_only: '&cJoueurs uniquement!'
+  no_permission: '&cVous n''avez pas la permission!'
+  insufficient_funds: '&cFonds insuffisants!'
+  economy_unavailable: '&cEconomie indisponible, vos jetons ont ete rendus.'
+  no_chips: '&cPas assez de jetons!'
+  current_chips: '&7(Vous avez: %chips% jetons)'
+  current_balance: '&7(Vous avez: %balance%)'
+  cancel_hint: '&7(Tapez cancel pour annuler)'
+  invalid_number: '&cNombre invalide!'
+  min_exchange: '&cMinimum: %min%!'
+  max_selection: '&cLimite de sélection: %limit%!'
+  game_disabled: '&cCe jeu est désactivé!'
+  enter_buy_enhanced: '&eEntrez le montant de %currency% pour acheter des jetons:'
+  enter_sell_enhanced: '&eEntrez le nombre de jetons à vendre contre %currency%:'
+  exchange:
+    cancelled: '&cOpération annulée.'
+    buy_success: '&a%chips% jetons achetés pour %coins% %currency%.'
+    sell_success: '&a%chips% jetons vendus pour %coins% %currency%.'
+  roulette:
+    win: '&aRésultat: %color%%number% -> Gagné: %payout% jetons!'
+    loss: '&cRésultat: %color%%number% -> Perdu: %bet% jetons.'
+    spectate: '&7Résultat: %color%%number% (%colorname%)'
+    bet_placed: '&a%amount% misé sur %bet%'
+    bet_removed: '&eMise retirée.'
+    closed: '&cLes paris sont fermés!'
+    opposing: '&cImpossible de miser sur des couleurs opposées!'
+    dozen: '&cVous ne pouvez choisir qu''une douzaine!'
+  slots:
+    win: '&6GAGNÉ! %matches%x %symbol% (x%mult%) -> +%payout% jetons!'
+    loss: '&cAucune combinaison! Réessayez.'
+  crash:
+    no_change: '&cImpossible de changer la mise maintenant!'
+    started: '&cLa manche a déjà commencé!'
+    locked: '&aMise %bet% verrouillée.'
+    cashed_out: '&6RETIRÉ! x%mult% -> +%win%'
+    exploded: '&cCRASH À x%mult%!'
+  daily:
+    already_spinning: '&cLa roue tourne déjà !'
+    reward_money: '&aVous avez reçu %amount% %currency% !'
+    reward_chips: '&aVous avez reçu %amount% jetons !'
+    reward_item: '&bVous avez reçu %reward% x%amount% !'
+    no_rewards: '&cLes récompenses ne sont pas configurées'
+    reward: '&aVous avez reçu %reward% x%amount%!'
+    cooldown: '&cProchaine tentative dans %time%'
+  wheel:
+    already_running: '&cLe jeu est déjà en cours!'
+    select_color: '&cChoisissez une couleur!'
+    win: '&aGagné! %color% -> +%amount%'
+    loss: '&cTombé sur %color%. Mise perdue.'
+  setup:
+    separator: '&6============================================='
+    wizard_title: '&e[ CasinoRoulette — Configuration ]'
+    wizard_subtitle: '&fConfigurons le plugin!'
+    step1: '&bÉtape 1: choisissez la langue du plugin:'
+    step2: '&bÉtape 2: choisissez le système de monnaie:'
+    already_configured: '&cLe plugin est déjà configuré!'
+    not_configured: '&cLe plugin n''est pas encore configuré. Contactez un administrateur.'
+    completed_title: '&a[ Configuration terminée! ]'
+    completed_by: '&fConfiguration terminée par %player%!'
+    lang_applied: '&eLangue: %lang%'
+    eco_applied: '&eMode de monnaie: %eco%'
+    change_hint: '&7Vous pouvez modifier les paramètres dans config.yml.'
+    status: '&8   Statut: %status%'
+    status_eco_found: '&a(Économie trouvée)'
+    status_eco_missing: '&c(Aucun plugin d''économie trouvé)'
+    status_item: '&a(Toujours disponible)'
+    click: '&7Cliquez'
+    command_hint: '&7/casino setup %type% %value%'
+    eco_vault: '&a&l[ Vault Economy ]'
+    eco_vault_disabled: '&7&l[ Vault Economy ]'
+    eco_item: '&6&l[ Monnaie objet ]'
+    language:
+      en: '&a&l[ English ]'
+      ru: '&c&l[ Русский ]'
+      de: '&e&l[ Deutsch ]'
+      fr: '&b&l[ Français ]'
+      tr: '&6&l[ Türkçe ]'
+      pl: '&f&l[ Polski ]'
+      pt_br: '&a&l[ Português BR ]'
+  update:
+    available: '&6[CasinoRoulette] &eUne mise à jour est disponible: &f%version%'
+    download: '&7Télécharger: &bhttps://modrinth.com/plugin/casinoroulette'
+    up_to_date: CasinoRoulette est à jour (%version%)
+    console:
+      title: ╔══════════════════════════════════╗
+      available: '║     MISE À JOUR CasinoRoulette         '
+      version: '║  Nouvelle version: %version%          '
+      link: '║  Download: https://modrinth.com/plugin/casinoroulette '
+      bottom: ╚══════════════════════════════════╝
+words:
+  color:
+    red: Rouge
+    black: Noir
+    zero: Zéro
+leaderboard:
+  category_name: '&e&l%category%'
+  category_leader: '&7Leader: %leader%'
+  category_click: '&aCliquez pour ouvrir'
+  entry_name: '&6#%place% &f%player%'
+  entry_value: '&eValeur: &a%value%'
+  entry_wins: '&7Victoires: &f%wins%'
+  entry_games: '&7Parties: &f%games%'
+  current_category: '&e%category%'
+  empty: '&7Pas encore de données'
+  cat:
+    money: 💰 Joueurs les plus riches
+    wins: 🏆 Plus de victoires
+    bets: 🎲 Plus de paris
+    games: ⌚ Plus de parties
+    biggest_win: ⭐ Plus gros gain
+    biggest_loss: ☠ Plus grosse perte
+    daily: 🎁 Utilisations de la roue
+    cases: 📦 Caisses ouvertes
+    wheel: 🎡 Tours de roue
+    chips_bought: 🪙 Jetons achetés

@@ -1,0 +1,35 @@
+{
+  "loader": {
+    "name": "java_plain",
+    "version": "1.0"
+  },
+  "license": "MIT",
+  "global": {
+    "version": "${project.version}",
+    "links": {
+      "homepage": "https://github.com/Stepanyaa/CasinoRoulette"
+    },
+    "contributors": [
+      {
+        "name": "Stepanyaa",
+        "description": "Author"
+      }
+    ],
+    "dependencies": [
+      {
+        "id": "spongeapi",
+        "version": "12.0.0",
+        "load-order": "after",
+        "optional": false
+      }
+    ]
+  },
+  "plugins": [
+    {
+      "id": "casinoroulette",
+      "name": "CasinoRoulette",
+      "entrypoint": "ru.stepanyaa.casinoRoulette.bootstrap.SpongeBootstrap",
+      "description": "Multi-platform casino: roulette, slots, crash, wheel of fortune, daily wheel and cases."
+    }
+  ]
+}

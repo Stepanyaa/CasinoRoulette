@@ -1,6 +1,11 @@
 # Core Economics Settings
 settings:
+      is-configured: false            # Set to true once the setup wizard has been completed
       commission_percent: 10.0        # Commission fee (in %)
+      # VAULT        - Vault economy (not available on Folia)
+      # PLAYERPOINTS - PlayerPoints, the usual choice on Folia
+      # ITEM         - the item named below is the currency
+      # AUTO         - Vault, then PlayerPoints, then the internal economy
       economy-mode: "VAULT"
       item-resource: "DIAMOND"
       custom-currency-name: ""        # Custom currency name override (leave empty for auto-detection)
@@ -21,6 +26,21 @@ lang: en
 
 # Update Checker
 check-for-updates: true   # Set to false to disable update notifications
+
+# Feature toggles (turn whole systems on/off)
+features:
+      fortune-wheel: true             # Fortune Wheel game. If false, Roulette takes its slot in the main menu
+      free-wheel: true                # Free daily Fortune Wheel
+      leaderboards: true              # Leaderboards menu
+
+# Sounds for menus and games (set enabled to false to mute everything)
+sounds:
+      enabled: true
+      click: UI_BUTTON_CLICK          # Clicking buttons
+      open_menu: BLOCK_CHEST_OPEN     # Opening a menu
+      spin: BLOCK_NOTE_BLOCK_PLING    # Wheel / daily-wheel spin tick
+      win: ENTITY_PLAYER_LEVELUP      # Winning
+      lose: ENTITY_VILLAGER_NO        # Losing
 
 # Roulette Settings
 roulette:
@@ -74,3 +94,14 @@ selection_limits:
       # premium: 15        # For players with "casino.limit.premium" permission
       # donor: 12           # For players with "casino.limit.donor" permission
       # legendary: 20       # For players with "casino.limit.legendary" permission
+
+
+# Main menu additions
+main-menu:
+  top-winners-heads: true
+  top-winners-count: 9
+  buttons:
+    roulette-slot: 20
+    fortune-wheel-slot: 22
+    daily-casino-slot: 24
+    leaderboards-slot: 31

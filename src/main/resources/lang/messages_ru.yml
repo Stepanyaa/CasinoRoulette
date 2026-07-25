@@ -1,0 +1,246 @@
+# CasinoRoulette language file (ru)
+# Auto-generated - full translations
+
+config-version: 1.2.0
+common:
+  time_short: '%hours%ч %minutes%м'
+  back: '&cНазад'
+  awaiting: '&7...'
+  chips: фишек
+  currency_name: монеты
+  currency_name_item: предметы
+  bet_size: '&6Ставка: %amount%'
+  bet_lore:
+  - '&7ЛКМ/ПКМ — изменить'
+  - '&7Мин: %min% | Макс: %max%'
+  bet_lore_shift:
+  - '&7ЛКМ/ПКМ: +/- шаг'
+  - '&7Shift: шаг x10'
+gui:
+  titles:
+    main_menu: 'Казино: Главное меню'
+    exchange: 'Казино: Обмен'
+    buy_chips: 'Казино: Покупка фишек'
+    sell_chips: 'Казино: Продажа фишек'
+    roulette: Рулетка
+    stats: Статистика
+    slots: Игровой автомат
+    crash: Краш
+    leaderboards: Таблица лидеров
+    wheel: Колесо фортуны
+    daily: Бесплатное колесо фортуны
+  main:
+    play_roulette: '&a&lИГРАТЬ В РУЛЕТКУ'
+    slots: '&c&lСЛОТЫ'
+    crash: '&c&lКРАШ'
+    stats: '&bСтатистика'
+    exchange: '&eОбмен'
+    wheel: '&6&lКОЛЕСО ФОРТУНЫ'
+    daily: '&a&lБЕСПЛАТНОЕ КОЛЕСО ФОРТУНЫ'
+    leaderboards: '&e&lТАБЛИЦА ЛИДЕРОВ'
+    profile_name: '&6Профиль'
+    profile_lore:
+    - '&eФишки: &f%chips%'
+    - '&eБаланс: &f%balance%'
+    top_win_name: '&e#%place% &f%player%'
+    top_win_lore:
+    - '&7Выиграл на сервере:'
+    - '&a%amount% фишек'
+  exchange:
+    buy_btn: '&a&lКУПИТЬ'
+    buy_lore: '&7Обменять %currency% на фишки'
+    sell_btn: '&c&lПРОДАТЬ'
+    sell_lore: '&7Обменять фишки на %currency%'
+    commission: '&6Комиссия: %fee%%'
+  buy:
+    item_name: '&aКупить %amount%'
+    price: '&7Цена: %price% %currency%'
+    receive: '&eПолучите: %chips% фишек'
+    custom: '&aСвоя сумма'
+    custom_lore: '&7Введите сумму в чат'
+  sell:
+    item_name: '&cПродать %amount%'
+    price: '&7Цена: %price% фишек'
+    receive: '&eПолучите: %coins% %currency%'
+    custom: '&cСвоя сумма'
+    custom_lore: '&7Введите сумму в чат'
+  roulette:
+    accepting: '&6Приём ставок...'
+    spinning_in: '&eЗапуск через: %time%с'
+    in_progress: '&cИДЁТ ВРАЩЕНИЕ'
+    bet_placed: '&eСтавка: %amount%'
+    click_to_bet: '&7Нажмите — ставка %amount%'
+    click_to_bet_no_amt: '&7Нажмите, чтобы поставить'
+    red: '&cКрасное'
+    black: '&8Чёрное'
+    doz1: '&a1-я дюжина'
+    doz2: '&b2-я дюжина'
+    doz3: '&63-я дюжина'
+    your_chips: '&6Фишки: %amount%'
+    history: '&bИстория: %history%'
+  stats:
+    title_item: '&6Статистика'
+    wins: '&eПобеды: %amount%'
+    losses: '&eПоражения: %amount%'
+    rounds: '&eСыграно раундов: %amount%'
+    won: '&aВсего выиграно: %amount% фишек'
+    lost: '&cВсего проиграно: %amount% фишек'
+  slots:
+    spin: '&6КРУТИТЬ!'
+    spinning: '&cВРАЩЕНИЕ...'
+  crash:
+    place_bet: '&eСДЕЛАТЬ СТАВКУ'
+    place_bet_lore: '&7Сумма: %amount%'
+    multiplier: '&6x%multiplier%'
+    awaiting: '&7Ожидание ставки...'
+    crashed: '&cКраш на x%multiplier%'
+    cashout: '&aЗАБРАТЬ'
+    cashout_lore: '&eВыплата: %payout%'
+    click_secure: '&8Нажмите, чтобы забрать'
+    already_claimed: '&cУже забрано'
+    no_bet: '&7Нет ставки'
+  daily:
+    pointer: '&e&lПриз'
+    pointer_lore: '&7Здесь остановится колесо'
+    reward_lore: '&7Шанс: &f%chance%%'
+    spinning: '&7Колесо крутится...'
+    spin_lore: '&7Бесплатно раз в %hours% ч'
+    rewards:
+      chips_100: 'Фишки'
+      money_500: 'Монеты'
+      diamond: 'Алмазы'
+    cooldown: '&cПерезарядка'
+    cooldown_lore: '&7Следующая попытка через: %time%'
+    spin: '&a&lКРУТИТЬ'
+  wheel:
+    pointer: '&e&lУказатель'
+    pointer_lore: '&7Победный сектор остановится здесь'
+    color: '%selected%&e%color% &7x%multiplier%'
+    color_lore: '&7Нажмите, чтобы выбрать'
+    bet: '&6Ставка: %amount% %currency%'
+    bet_lore: '&7ЛКМ + | ПКМ -'
+    balance: '&7Баланс: %balance%'
+    start: '&aЗапустить'
+    colors:
+      orange: Оранжевый
+      yellow: Жёлтый
+      blue: Синий
+      red: Красный
+messages:
+  prefix: '&7[&6Казино&7] '
+  reload_success: '&aПерезагружено!'
+  players_only: '&cТолько для игроков!'
+  no_permission: '&cУ вас нет прав!'
+  insufficient_funds: '&cНедостаточно средств!'
+  economy_unavailable: '&cЭкономика недоступна, фишки возвращены.'
+  no_chips: '&cНедостаточно фишек!'
+  current_chips: '&7(У вас: %chips% фишек)'
+  current_balance: '&7(У вас: %balance%)'
+  cancel_hint: '&7(Напишите cancel для отмены)'
+  invalid_number: '&cНеверное число!'
+  min_exchange: '&cМинимум: %min%!'
+  max_selection: '&cЛимит ставок: %limit%!'
+  game_disabled: '&cЭта игра сейчас отключена!'
+  enter_buy_enhanced: '&eВведите сумму %currency% для покупки фишек:'
+  enter_sell_enhanced: '&eВведите количество фишек для продажи за %currency%:'
+  exchange:
+    cancelled: '&cОперация отменена.'
+    buy_success: '&aКуплено %chips% фишек за %coins% %currency%.'
+    sell_success: '&aПродано %chips% фишек за %coins% %currency%.'
+  roulette:
+    win: '&aРезультат: %color%%number% -> Выигрыш: %payout% фишек!'
+    loss: '&cРезультат: %color%%number% -> Проигрыш: %bet% фишек.'
+    spectate: '&7Результат: %color%%number% (%colorname%)'
+    bet_placed: '&aСтавка %amount% на %bet%'
+    bet_removed: '&eСтавка убрана.'
+    closed: '&cПриём ставок закрыт!'
+    opposing: '&cНельзя ставить на противоположные цвета!'
+    dozen: '&cМожно выбрать только одну дюжину!'
+  slots:
+    win: '&6ПОБЕДА! %matches%x %symbol% (x%mult%) -> +%payout% фишек!'
+    loss: '&cНет совпадений! Попробуйте ещё раз.'
+  crash:
+    no_change: '&cСейчас нельзя изменить ставку!'
+    started: '&cРаунд уже начался!'
+    locked: '&aСтавка %bet% принята.'
+    cashed_out: '&6ЗАБРАНО! x%mult% -> +%win%'
+    exploded: '&cКРАШ НА x%mult%!'
+  daily:
+    already_spinning: '&cКолесо уже крутится!'
+    reward_money: '&aВы получили %amount% %currency%!'
+    reward_chips: '&aВы получили %amount% фишек!'
+    reward_item: '&bВы получили %reward% x%amount%!'
+    no_rewards: '&cНаграды не настроены'
+    reward: '&aВы получили %reward% x%amount%!'
+    cooldown: '&cСледующая попытка через %time%'
+  wheel:
+    already_running: '&cИгра уже запущена!'
+    select_color: '&cВыберите цвет!'
+    win: '&aПобеда! %color% -> +%amount%'
+    loss: '&cВыпало %color%. Ставка проиграна.'
+  setup:
+    separator: '&6============================================='
+    wizard_title: '&e[ CasinoRoulette — Настройка ]'
+    wizard_subtitle: '&fДавайте настроим плагин!'
+    step1: '&bШаг 1: выберите язык плагина:'
+    step2: '&bШаг 2: выберите валютную систему сервера:'
+    already_configured: '&cПлагин уже настроен!'
+    not_configured: '&cПлагин ещё не настроен. Обратитесь к администратору.'
+    completed_title: '&a[ Настройка завершена! ]'
+    completed_by: '&fНастройку завершил %player%!'
+    lang_applied: '&eЯзык: %lang%'
+    eco_applied: '&eВалюта: %eco%'
+    change_hint: '&7Вы можете изменить любые настройки в config.yml.'
+    status: '&8   Статус: %status%'
+    status_eco_found: '&a(Экономика найдена)'
+    status_eco_missing: '&c(Плагин экономики не найден)'
+    status_item: '&a(Всегда доступно)'
+    click: '&7Нажмите'
+    command_hint: '&7/casino setup %type% %value%'
+    eco_vault: '&a&l[ Vault Economy ]'
+    eco_vault_disabled: '&7&l[ Vault Economy ]'
+    eco_item: '&6&l[ Предметная валюта ]'
+    language:
+      en: '&a&l[ English ]'
+      ru: '&c&l[ Русский ]'
+      de: '&e&l[ Deutsch ]'
+      fr: '&b&l[ Français ]'
+      tr: '&6&l[ Türkçe ]'
+      pl: '&f&l[ Polski ]'
+      pt_br: '&a&l[ Português BR ]'
+  update:
+    available: '&6[CasinoRoulette] &eДоступно обновление: &f%version%'
+    download: '&7Скачать: &bhttps://modrinth.com/plugin/casinoroulette'
+    up_to_date: CasinoRoulette обновлён до последней версии (%version%)
+    console:
+      title: ╔══════════════════════════════════╗
+      available: '║   ДОСТУПНО ОБНОВЛЕНИЕ CasinoRoulette  '
+      version: '║  Новая версия: %version%           '
+      link: '║  Download: https://modrinth.com/plugin/casinoroulette '
+      bottom: ╚══════════════════════════════════╝
+words:
+  color:
+    red: Красное
+    black: Чёрное
+    zero: Зеро
+leaderboard:
+  category_name: '&e&l%category%'
+  category_leader: '&7Лидер: %leader%'
+  category_click: '&aНажмите, чтобы открыть'
+  entry_name: '&6#%place% &f%player%'
+  entry_value: '&eЗначение: &a%value%'
+  entry_wins: '&7Побед: &f%wins%'
+  entry_games: '&7Игр: &f%games%'
+  current_category: '&e%category%'
+  empty: '&7Данных пока нет'
+  cat:
+    money: 💰 Богатейшие игроки
+    wins: 🏆 Больше всего побед
+    bets: 🎲 Больше всего ставок
+    games: ⌚ Больше всего игр
+    biggest_win: ⭐ Крупнейший выигрыш
+    biggest_loss: ☠ Крупнейший проигрыш
+    daily: 🎁 Использований колеса
+    cases: 📦 Открыто кейсов
+    wheel: 🎡 Вращений колеса фортуны
+    chips_bought: 🪙 Куплено фишек

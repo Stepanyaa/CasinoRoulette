@@ -1,0 +1,246 @@
+# CasinoRoulette language file (tr)
+# Auto-generated - full translations
+
+config-version: 1.2.0
+common:
+  time_short: '%hours%sa %minutes%dk'
+  back: '&cGeri'
+  awaiting: '&7...'
+  chips: fiş
+  currency_name: jeton
+  currency_name_item: eşya
+  bet_size: '&6Bahis: %amount%'
+  bet_lore:
+  - '&7Değiştirmek için sol/sağ tık'
+  - '&7Min: %min% | Maks: %max%'
+  bet_lore_shift:
+  - '&7Sol/Sağ: +/- adım'
+  - '&7Shift: adım x10'
+gui:
+  titles:
+    main_menu: 'Casino: Ana Menü'
+    exchange: 'Casino: Takas'
+    buy_chips: 'Casino: Jeton Al'
+    sell_chips: 'Casino: Jeton Sat'
+    roulette: Rulet
+    stats: İstatistikler
+    slots: Slot Makinesi
+    crash: Crash
+    leaderboards: Sıralamalar
+    wheel: Şans Çarkı
+    daily: Ücretsiz Çark
+  main:
+    play_roulette: '&a&lRULET OYNA'
+    slots: '&c&lSLOTLAR'
+    crash: '&c&lCRASH'
+    stats: '&bİstatistikler'
+    exchange: '&eTakas'
+    wheel: '&6&lŞANS ÇARKI'
+    daily: '&a&lÜCRETSİZ ÇARK'
+    leaderboards: '&e&lSIRALAMALAR'
+    profile_name: '&6Profil'
+    profile_lore:
+    - '&eJetonlar: &f%chips%'
+    - '&eBakiye: &f%balance%'
+    top_win_name: '&e#%place% &f%player%'
+    top_win_lore:
+    - '&7Bu sunucuda kazandı:'
+    - '&a%amount% jeton'
+  exchange:
+    buy_btn: '&a&lSATIN AL'
+    buy_lore: '&7%currency% karşılığında jeton al'
+    sell_btn: '&c&lSAT'
+    sell_lore: '&7Jetonları %currency% çevir'
+    commission: '&6Ücret: %fee%%'
+  buy:
+    item_name: '&a%amount% al'
+    price: '&7Fiyat: %price% %currency%'
+    receive: '&eAlınan: %chips% jeton'
+    custom: '&aÖzel miktar'
+    custom_lore: '&7Miktarı sohbete yaz'
+  sell:
+    item_name: '&c%amount% sat'
+    price: '&7Fiyat: %price% jeton'
+    receive: '&eAlınan: %coins% %currency%'
+    custom: '&cÖzel miktar'
+    custom_lore: '&7Miktarı sohbete yaz'
+  roulette:
+    accepting: '&6Bahisler alınıyor...'
+    spinning_in: '&eDönüş: %time%s'
+    in_progress: '&cÇEVRİLİYOR'
+    bet_placed: '&eBahis: %amount%'
+    click_to_bet: '&7Tıkla — bahis %amount%'
+    click_to_bet_no_amt: '&7Bahis için tıkla'
+    red: '&cKırmızı'
+    black: '&8Siyah'
+    doz1: '&a1. düzine'
+    doz2: '&b2. düzine'
+    doz3: '&63. düzine'
+    your_chips: '&6Jeton: %amount%'
+    history: '&bGeçmiş: %history%'
+  stats:
+    title_item: '&6İstatistikler'
+    wins: '&eGaliplik: %amount%'
+    losses: '&eYenilgi: %amount%'
+    rounds: '&eOynanan tur: %amount%'
+    won: '&aToplam kazanç: %amount% jeton'
+    lost: '&cToplam kayıp: %amount% jeton'
+  slots:
+    spin: '&6ÇEVİR!'
+    spinning: '&cÇEVRİLİYOR...'
+  crash:
+    place_bet: '&eBAHİS YAP'
+    place_bet_lore: '&7Miktar: %amount%'
+    multiplier: '&6x%multiplier%'
+    awaiting: '&7Bahis bekleniyor...'
+    crashed: '&cx%multiplier% çöktü'
+    cashout: '&aÇEK'
+    cashout_lore: '&eÖdeme: %payout%'
+    click_secure: '&8Almak için tıkla'
+    already_claimed: '&cZaten çekildi'
+    no_bet: '&7Bahis yok'
+  daily:
+    pointer: '&e&lÖdül'
+    pointer_lore: '&7Çark burada durur'
+    reward_lore: '&7Şans: &f%chance%%'
+    spinning: '&7Çark dönüyor...'
+    spin_lore: '&7Her %hours% saatte bir ücretsiz'
+    rewards:
+      chips_100: 'Fiş'
+      money_500: 'Para'
+      diamond: 'Elmas'
+    cooldown: '&cBekleme'
+    cooldown_lore: '&7Sonraki dönüş: %time%'
+    spin: '&a&lÇEVİR'
+  wheel:
+    pointer: '&e&lGösterge'
+    pointer_lore: '&7Kazanan bölüm burada durur'
+    color: '%selected%&e%color% &7x%multiplier%'
+    color_lore: '&7Seçmek için tıkla'
+    bet: '&6Bahis: %amount% %currency%'
+    bet_lore: '&7Sol + | Sağ -'
+    balance: '&7Bakiye: %balance%'
+    start: '&aBaşlat'
+    colors:
+      orange: Turuncu
+      yellow: Sarı
+      blue: Mavi
+      red: Kırmızı
+messages:
+  prefix: '&7[&6Casino&7] '
+  reload_success: '&aYeniden yüklendi!'
+  players_only: '&cSadece oyuncular!'
+  no_permission: '&cİzniniz yok!'
+  insufficient_funds: '&cYetersiz bakiye!'
+  economy_unavailable: '&cEkonomi kullanilamiyor, jetonlariniz iade edildi.'
+  no_chips: '&cYetersiz jeton!'
+  current_chips: '&7(Sende: %chips% jeton)'
+  current_balance: '&7(Sende: %balance%)'
+  cancel_hint: '&7(İptal için cancel yaz)'
+  invalid_number: '&cGeçersiz sayı!'
+  min_exchange: '&cMinimum: %min%!'
+  max_selection: '&cSeçim limiti: %limit%!'
+  game_disabled: '&cBu oyun devre dışı!'
+  enter_buy_enhanced: '&eJeton almak için %currency% miktarını gir:'
+  enter_sell_enhanced: '&e%currency% karşılığı satılacak jeton miktarını gir:'
+  exchange:
+    cancelled: '&cİşlem iptal edildi.'
+    buy_success: '&a%coins% %currency% karşılığı %chips% jeton alındı.'
+    sell_success: '&a%chips% jeton %coins% %currency% karşılığı satıldı.'
+  roulette:
+    win: '&aSonuç: %color%%number% -> Kazanç: %payout% jeton!'
+    loss: '&cSonuç: %color%%number% -> Kayıp: %bet% jeton.'
+    spectate: '&7Sonuç: %color%%number% (%colorname%)'
+    bet_placed: '&a%bet% üzerine %amount% konuldu'
+    bet_removed: '&eBahis kaldırıldı.'
+    closed: '&cBahisler kapandı!'
+    opposing: '&cZıt renklere bahis yapılamaz!'
+    dozen: '&cSadece bir düzine seçebilirsin!'
+  slots:
+    win: '&6KAZANDIN! %matches%x %symbol% (x%mult%) -> +%payout% jeton!'
+    loss: '&cEşleşme yok! Tekrar dene.'
+  crash:
+    no_change: '&cBahis şimdi değiştirilemez!'
+    started: '&cTur zaten başladı!'
+    locked: '&aBahis %bet% kilitlendi.'
+    cashed_out: '&6ÇEKİLDİ! x%mult% -> +%win%'
+    exploded: '&cx%mult% ÇÖKTÜ!'
+  daily:
+    already_spinning: '&cÇark zaten dönüyor!'
+    reward_money: '&a%amount% %currency% kazandın!'
+    reward_chips: '&a%amount% fiş kazandın!'
+    reward_item: '&b%reward% x%amount% kazandın!'
+    no_rewards: '&cÖdüller ayarlanmadı'
+    reward: '&a%reward% x%amount% aldın!'
+    cooldown: '&cSonraki deneme %time%'
+  wheel:
+    already_running: '&cOyun zaten çalışıyor!'
+    select_color: '&cBir renk seç!'
+    win: '&aKazandın! %color% -> +%amount%'
+    loss: '&c%color% geldi. Bahis kaybedildi.'
+  setup:
+    separator: '&6============================================='
+    wizard_title: '&e[ CasinoRoulette — Kurulum ]'
+    wizard_subtitle: '&fEklentiyi ayarlayalım!'
+    step1: '&bAdım 1: eklenti dilini seç:'
+    step2: '&bAdım 2: sunucu para sistemini seç:'
+    already_configured: '&cEklenti zaten yapılandırılmış!'
+    not_configured: '&cEklenti henüz yapılandırılmadı. Bir yöneticiye başvurun.'
+    completed_title: '&a[ Kurulum tamamlandı! ]'
+    completed_by: '&fKurulumu %player% tamamladı!'
+    lang_applied: '&eDil: %lang%'
+    eco_applied: '&ePara modu: %eco%'
+    change_hint: '&7Ayarları istediğin zaman config.yml''de değiştirebilirsin.'
+    status: '&8   Durum: %status%'
+    status_eco_found: '&a(Ekonomi bulundu)'
+    status_eco_missing: '&c(Ekonomi eklentisi bulunamadı)'
+    status_item: '&a(Her zaman kullanılabilir)'
+    click: '&7Tıkla'
+    command_hint: '&7/casino setup %type% %value%'
+    eco_vault: '&a&l[ Vault Economy ]'
+    eco_vault_disabled: '&7&l[ Vault Economy ]'
+    eco_item: '&6&l[ Eşya Parası ]'
+    language:
+      en: '&a&l[ English ]'
+      ru: '&c&l[ Русский ]'
+      de: '&e&l[ Deutsch ]'
+      fr: '&b&l[ Français ]'
+      tr: '&6&l[ Türkçe ]'
+      pl: '&f&l[ Polski ]'
+      pt_br: '&a&l[ Português BR ]'
+  update:
+    available: '&6[CasinoRoulette] &eBir güncelleme mevcut: &f%version%'
+    download: '&7İndir: &bhttps://modrinth.com/plugin/casinoroulette'
+    up_to_date: CasinoRoulette güncel (%version%)
+    console:
+      title: ╔══════════════════════════════════╗
+      available: '║     CasinoRoulette GÜNCELLEMESİ        '
+      version: '║  Yeni sürüm: %version%                '
+      link: '║  Download: https://modrinth.com/plugin/casinoroulette '
+      bottom: ╚══════════════════════════════════╝
+words:
+  color:
+    red: Kırmızı
+    black: Siyah
+    zero: Sıfır
+leaderboard:
+  category_name: '&e&l%category%'
+  category_leader: '&7Lider: %leader%'
+  category_click: '&aAçmak için tıkla'
+  entry_name: '&6#%place% &f%player%'
+  entry_value: '&eDeğer: &a%value%'
+  entry_wins: '&7Galibiyet: &f%wins%'
+  entry_games: '&7Oyun: &f%games%'
+  current_category: '&e%category%'
+  empty: '&7Henüz veri yok'
+  cat:
+    money: 💰 En zengin oyuncular
+    wins: 🏆 En çok galibiyet
+    bets: 🎲 En çok bahis
+    games: ⌚ En çok oyun
+    biggest_win: ⭐ En büyük kazanç
+    biggest_loss: ☠ En büyük kayıp
+    daily: 🎁 Günlük çark kullanımı
+    cases: 📦 Açılan kasalar
+    wheel: 🎡 Çark dönüşleri
+    chips_bought: 🪙 Alınan jetonlar

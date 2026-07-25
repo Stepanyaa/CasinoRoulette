@@ -1,106 +1,17 @@
-/*
-MIT License
-
-Copyright (c) 2026 Stepanyaa
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
 package ru.stepanyaa.casinoRoulette;
 
-import org.bukkit.Bukkit;
-import java.io.File;
-import java.sql.*;
-import java.util.UUID;
-
-public class DatabaseManager {
-    private final CasinoRoulette plugin;
-    private Connection connection;
-
-    public DatabaseManager(CasinoRoulette plugin) {
-        this.plugin = plugin;
-        connect();
-    }
-
-    private void connect() {
-        try {
-            File file = new File(plugin.getDataFolder(), "database.db");
-            if (!file.exists()) file.createNewFile();
-            Class.forName("org.sqlite.JDBC");
-            connection = DriverManager.getConnection("jdbc:sqlite:" + file.getAbsolutePath());
-
-            try (Statement st = connection.createStatement()) {
-                st.execute("CREATE TABLE IF NOT EXISTS player_data (" +
-                        "uuid VARCHAR(36) PRIMARY KEY, chips INT, wins INT, " +
-                        "losses INT, total_won BIGINT, total_lost BIGINT, rounds INT);");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void savePlayer(UUID uuid, int chips, int wins, int losses, int totalWon, int totalLost, int rounds) {
-        if (plugin.isEnabled()) {
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-                String sql = "REPLACE INTO player_data VALUES (?, ?, ?, ?, ?, ?, ?)";
-                try (PreparedStatement ps = connection.prepareStatement(sql)) {
-                    ps.setString(1, uuid.toString());
-                    ps.setInt(2, chips);
-                    ps.setInt(3, wins);
-                    ps.setInt(4, losses);
-                    ps.setInt(5, totalWon);
-                    ps.setInt(6, totalLost);
-                    ps.setInt(7, rounds);
-                    ps.executeUpdate();
-                } catch (SQLException e) { e.printStackTrace(); }
-            });
-        } else {
-            try {
-                String sql = "REPLACE INTO player_data VALUES (?, ?, ?, ?, ?, ?, ?)";
-                try (PreparedStatement ps = connection.prepareStatement(sql)) {
-                    ps.setString(1, uuid.toString());
-                    ps.setInt(2, chips);
-                    ps.setInt(3, wins);
-                    ps.setInt(4, losses);
-                    ps.setInt(5, totalWon);
-                    ps.setInt(6, totalLost);
-                    ps.setInt(7, rounds);
-                    ps.executeUpdate();
-                }
-            } catch (SQLException e) { e.printStackTrace(); }
-        }
-    }
-
-    public void loadPlayer(UUID uuid, CasinoRoulette plugin) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            String sql = "SELECT * FROM player_data WHERE uuid = ?";
-            try (PreparedStatement ps = connection.prepareStatement(sql)) {
-                ps.setString(1, uuid.toString());
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) {
-                    plugin.getPlayerChips().put(uuid, rs.getInt("chips"));
-                    plugin.getWins().put(uuid, rs.getInt("wins"));
-                    plugin.getLosses().put(uuid, rs.getInt("losses"));
-                    plugin.getTotalWon().put(uuid, rs.getInt("total_won"));
-                    plugin.getTotalLost().put(uuid, rs.getInt("total_lost"));
-                    plugin.getTotalRounds().put(uuid, rs.getInt("rounds"));
-                }
-            } catch (SQLException e) { e.printStackTrace(); }
-        });
-    }
+import org.bukkit.Bukkit;import java.io.File;import java.sql.*;import java.util.*;
+public class DatabaseManager{private final CasinoRoulette plugin;private Connection connection;public DatabaseManager(CasinoRoulette p){plugin=p;connect();}
+private synchronized void connect(){try{File f=new File(plugin.getDataFolder(),"database.db");if(!f.exists())f.createNewFile();Class.forName("org.sqlite.JDBC");connection=DriverManager.getConnection("jdbc:sqlite:"+f.getAbsolutePath());try(Statement st=connection.createStatement()){st.execute("CREATE TABLE IF NOT EXISTS player_data (uuid VARCHAR(36) PRIMARY KEY, chips INT, wins INT, losses INT, total_won BIGINT, total_lost BIGINT, rounds INT);");String[] cols={"name TEXT","bets BIGINT DEFAULT 0","biggest_win BIGINT DEFAULT 0","biggest_loss BIGINT DEFAULT 0","daily_uses BIGINT DEFAULT 0","cases_opened BIGINT DEFAULT 0","wheel_spins BIGINT DEFAULT 0","chips_bought BIGINT DEFAULT 0","daily_total_won BIGINT DEFAULT 0","most_valuable_daily_reward BIGINT DEFAULT 0","last_daily_reward TEXT DEFAULT ''","last_daily_use BIGINT DEFAULT 0"};for(String c:cols)try{st.execute("ALTER TABLE player_data ADD COLUMN "+c);}catch(SQLException ignored){}}}catch(Exception e){e.printStackTrace();}}
+public void savePlayer(UUID u,int chips,int wins,int losses,int totalWon,int totalLost,int rounds){Runnable r=()->{synchronized(this){try(PreparedStatement ps=connection.prepareStatement("INSERT OR REPLACE INTO player_data(uuid,chips,wins,losses,total_won,total_lost,rounds,name,bets,biggest_win,biggest_loss,daily_uses,cases_opened,wheel_spins,chips_bought,daily_total_won,most_valuable_daily_reward,last_daily_reward,last_daily_use) VALUES(?,?,?,?,?,?,?,COALESCE((SELECT name FROM player_data WHERE uuid=?),''),COALESCE((SELECT bets FROM player_data WHERE uuid=?),0),COALESCE((SELECT biggest_win FROM player_data WHERE uuid=?),0),COALESCE((SELECT biggest_loss FROM player_data WHERE uuid=?),0),COALESCE((SELECT daily_uses FROM player_data WHERE uuid=?),0),COALESCE((SELECT cases_opened FROM player_data WHERE uuid=?),0),COALESCE((SELECT wheel_spins FROM player_data WHERE uuid=?),0),COALESCE((SELECT chips_bought FROM player_data WHERE uuid=?),0),COALESCE((SELECT daily_total_won FROM player_data WHERE uuid=?),0),COALESCE((SELECT most_valuable_daily_reward FROM player_data WHERE uuid=?),0),COALESCE((SELECT last_daily_reward FROM player_data WHERE uuid=?),''),COALESCE((SELECT last_daily_use FROM player_data WHERE uuid=?),0))")){int i=1;ps.setString(i++,u.toString());ps.setInt(i++,chips);ps.setInt(i++,wins);ps.setInt(i++,losses);ps.setInt(i++,totalWon);ps.setInt(i++,totalLost);ps.setInt(i++,rounds);for(int x=0;x<12;x++)ps.setString(i++,u.toString());ps.executeUpdate();}catch(SQLException e){e.printStackTrace();}}}; if(plugin.isEnabled())ru.stepanyaa.casinoRoulette.scheduler.CasinoScheduler.async(r);else r.run();}
+public void loadPlayer(UUID u,CasinoRoulette pl){ru.stepanyaa.casinoRoulette.scheduler.CasinoScheduler.async(()->{synchronized(this){try(PreparedStatement ps=connection.prepareStatement("SELECT * FROM player_data WHERE uuid=?")){ps.setString(1,u.toString());ResultSet rs=ps.executeQuery();if(rs.next()){pl.getPlayerChips().put(u,rs.getInt("chips"));pl.getWins().put(u,rs.getInt("wins"));pl.getLosses().put(u,rs.getInt("losses"));pl.getTotalWon().put(u,rs.getInt("total_won"));pl.getTotalLost().put(u,rs.getInt("total_lost"));pl.getTotalRounds().put(u,rs.getInt("rounds"));}}catch(SQLException e){e.printStackTrace();}}});}
+public void setName(UUID u,String name){upsert(u);try(PreparedStatement ps=connection.prepareStatement("UPDATE player_data SET name=? WHERE uuid=?")){ps.setString(1,name);ps.setString(2,u.toString());ps.executeUpdate();}catch(Exception ignored){}}
+private synchronized void upsert(UUID u){try(PreparedStatement ps=connection.prepareStatement("INSERT OR IGNORE INTO player_data(uuid,chips,wins,losses,total_won,total_lost,rounds) VALUES(?,0,0,0,0,0,0)")){ps.setString(1,u.toString());ps.executeUpdate();}catch(Exception e){e.printStackTrace();}}
+public synchronized void incrementStat(UUID u,String col,long v,boolean max){upsert(u);String sql=max?"UPDATE player_data SET "+col+"=MAX("+col+",?) WHERE uuid=?":"UPDATE player_data SET "+col+"="+col+"+? WHERE uuid=?";try(PreparedStatement ps=connection.prepareStatement(sql)){ps.setLong(1,v);ps.setString(2,u.toString());ps.executeUpdate();}catch(Exception e){e.printStackTrace();}}
+public synchronized void setDaily(UUID u,long use,String reward,long val){upsert(u);try(PreparedStatement ps=connection.prepareStatement("UPDATE player_data SET daily_uses=daily_uses+1,daily_total_won=daily_total_won+?,most_valuable_daily_reward=MAX(most_valuable_daily_reward,?),last_daily_reward=?,last_daily_use=? WHERE uuid=?")){ps.setLong(1,val);ps.setLong(2,val);ps.setString(3,reward);ps.setLong(4,use);ps.setString(5,u.toString());ps.executeUpdate();}catch(Exception e){e.printStackTrace();}}
+public synchronized long getLastDaily(UUID u){upsert(u);try(PreparedStatement ps=connection.prepareStatement("SELECT last_daily_use FROM player_data WHERE uuid=?")){ps.setString(1,u.toString());ResultSet r=ps.executeQuery();return r.next()?r.getLong(1):0;}catch(Exception e){return 0;}}
+public synchronized List<PlayerStats> loadAllStats(){List<PlayerStats> out=new ArrayList<>();try(Statement st=connection.createStatement();ResultSet r=st.executeQuery("SELECT * FROM player_data")){while(r.next()){PlayerStats s=new PlayerStats(UUID.fromString(r.getString("uuid")));s.name=r.getString("name");s.chips=r.getLong("chips");s.wins=r.getLong("wins");s.losses=r.getLong("losses");s.totalWon=r.getLong("total_won");s.totalLost=r.getLong("total_lost");s.rounds=r.getLong("rounds");s.bets=r.getLong("bets");s.biggestWin=r.getLong("biggest_win");s.biggestLoss=r.getLong("biggest_loss");s.dailyUses=r.getLong("daily_uses");s.casesOpened=r.getLong("cases_opened");s.wheelSpins=r.getLong("wheel_spins");s.chipsBought=r.getLong("chips_bought");out.add(s);}}catch(Exception e){e.printStackTrace();}return out;}
+public String formatStats(String name){return loadAllStats().stream().filter(s->name.equalsIgnoreCase(s.name)).findFirst().map(s->"§e"+s.name+" §7| chips: §a"+s.chips+" §7wins: §a"+s.wins+" §7games: §a"+s.rounds).orElse("§cИгрок не найден");}
+public synchronized void close(){try{if(connection!=null)connection.close();}catch(Exception ignored){}}
+public synchronized long getStat(UUID u,String col){if(col==null||!col.matches("[a-z_]+"))return 0L;try(PreparedStatement ps=connection.prepareStatement("SELECT "+col+" FROM player_data WHERE uuid=?")){ps.setString(1,u.toString());ResultSet rs=ps.executeQuery();if(rs.next())return rs.getLong(1);}catch(SQLException e){e.printStackTrace();}return 0L;}
 }
