@@ -25,8 +25,8 @@ public class ConfigManager {
     private File langFile;
     private FileConfiguration langConfig;
 
-    private static final String CURRENT_CONFIG_VERSION = "1.2.0";
-    private static final String CURRENT_LANG_VERSION = "1.2.0";
+    private static final String CURRENT_CONFIG_VERSION = "1.3.0";
+    private static final String CURRENT_LANG_VERSION = "1.3.0";
     private static final String LANG_FOLDER = "lang";
 
     public ConfigManager(CasinoRoulette plugin) {

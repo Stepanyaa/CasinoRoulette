@@ -104,10 +104,10 @@ public class WheelGame {
         if (slot == 49) { plugin.playMenuSound(player); plugin.getGui().openMainMenu(player); return; }
         int start = plugin.getExtra("wheel.yml").get().getInt("gui.color-start-slot", 45);
         List<String> colors = configuredColors();
-        if (slot >= start && slot < start + colors.size()) {
+        if (slot >= start && slot < start + colors.size() && slot <= 48) {
             selectedColor.put(uuid, colors.get(slot - start));
             plugin.playClickSound(player);
-            open(player);
+            draw(player, player.getOpenInventory().getTopInventory(), 0, -1);
             return;
         }
         if (slot == 50) {
@@ -115,7 +115,7 @@ public class WheelGame {
             int current = bet.getOrDefault(uuid, minBet()) + (event.isRightClick() ? -step : step);
             bet.put(uuid, Math.max(minBet(), Math.min(maxBet(), current)));
             plugin.playClickSound(player);
-            open(player);
+            draw(player, player.getOpenInventory().getTopInventory(), 0, -1);
             return;
         }
         if (slot == 53) spin(player);

@@ -97,6 +97,22 @@ public final class InternalEconomyProvider implements EconomyProvider {
     }
 
     @Override
+    public boolean setBalance(UUID player, double amount) {
+        if (amount < 0) return false;
+        balances.put(player, scale(BigDecimal.valueOf(amount)));
+        dirty = true;
+        return true;
+    }
+
+    @Override
+    public Map<UUID, Double> balances() {
+        Map<UUID, Double> copy = new java.util.HashMap<>();
+        for (Map.Entry<UUID, BigDecimal> entry : balances.entrySet())
+            copy.put(entry.getKey(), entry.getValue().doubleValue());
+        return copy;
+    }
+
+    @Override
     public String format(double amount) {
         return currencySymbol + scale(BigDecimal.valueOf(amount)).toPlainString();
     }

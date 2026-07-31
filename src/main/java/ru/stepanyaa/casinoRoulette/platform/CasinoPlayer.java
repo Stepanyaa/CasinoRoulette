@@ -14,6 +14,10 @@ public interface CasinoPlayer extends CasinoSender {
 
     void giveItem(CasinoItem item);
 
+    int countItem(String materialId);
+
+    boolean takeItem(String materialId, int amount);
+
     void playSound(String soundId, float volume, float pitch);
 
     void spawnParticle(String particleId, int count, double offsetX, double offsetY, double offsetZ);

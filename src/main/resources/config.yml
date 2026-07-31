@@ -2,16 +2,20 @@
 settings:
       is-configured: false            # Set to true once the setup wizard has been completed
       commission_percent: 10.0        # Commission fee (in %)
-      # VAULT        - Vault economy (not available on Folia)
+      # VAULT        - Vault economy (not available / unreliable on Folia)
       # PLAYERPOINTS - PlayerPoints, the usual choice on Folia
       # ITEM         - the item named below is the currency
-      # AUTO         - Vault, then PlayerPoints, then the internal economy
-      economy-mode: "VAULT"
+      # AUTO         - Folia: PlayerPoints first; elsewhere Vault, then PlayerPoints, then internal
+      # INTERNAL     - built-in casino currency
+      economy-mode: "AUTO"
       item-resource: "DIAMOND"
       custom-currency-name: ""        # Custom currency name override (leave empty for auto-detection)
 
 # Economy mode specific limits
 economy:
+      internal:
+            starting-balance: 0             # New players start with zero currency
+            currency-symbol: "$"            # Prefix used by the built-in economy
       vault:
             min_exchange: 100               # Minimum amount for exchange (Vault)
             min_bet: 1000                   # Minimum bet (Vault)
@@ -41,6 +45,8 @@ sounds:
       spin: BLOCK_NOTE_BLOCK_PLING    # Wheel / daily-wheel spin tick
       win: ENTITY_PLAYER_LEVELUP      # Winning
       lose: ENTITY_VILLAGER_NO        # Losing
+      bet: ENTITY_EXPERIENCE_ORB_PICKUP # Buying, selling and placing bets
+      crash: ENTITY_GENERIC_EXPLODE   # Crash game explosion
 
 # Roulette Settings
 roulette:
@@ -66,7 +72,7 @@ crash:
 slots:
       enabled: true                   # Enable or disable Slot Machine game
       weights:
-            COAL: 40                  # Very common (40%) - harder to win
+            COAL: 30                  # Very common (30%) - harder to win
             IRON_INGOT: 25            # Common (25%)
             REDSTONE: 20             # Common (20%)
             LAPIS_LAZULI: 15         # Uncommon (15%)

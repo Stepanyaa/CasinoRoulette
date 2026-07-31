@@ -14,6 +14,7 @@ public class SlotMachine {
     private final CasinoRoulette plugin;
     private final Map<UUID, Integer> currentSlotBet = new HashMap<>();
     private final Map<UUID, Boolean> isSpinning = new HashMap<>();
+    private final Map<UUID, Integer> activeSpinBet = new HashMap<>();
     private final Random random = new Random();
 
     private final Map<Material, Integer> weights = new HashMap<>();
@@ -112,11 +113,18 @@ public class SlotMachine {
 
         plugin.getPlayerChips().put(p.getUniqueId(), chips - bet);
         isSpinning.put(p.getUniqueId(), true);
+        activeSpinBet.put(p.getUniqueId(), bet);
 
         inv.setItem(17, plugin.createItem(Material.REDSTONE_BLOCK, cm.getMessage("gui.slots.spinning", "&cSPINNING...")));
 
         final int[] spins = {0};
+        final UUID spinId = p.getUniqueId();
         CasinoScheduler.timerAtEntity(p, 0L, 2L, task -> {
+                if (!p.isOnline() || !Boolean.TRUE.equals(isSpinning.get(spinId))) {
+                    abortSpin(spinId, bet, true);
+                    task.cancel();
+                    return;
+                }
                 spins[0]++;
                 List<Material> keys = new ArrayList<>(weights.keySet());
                 for (int i = 10; i <= 16; i++) {
@@ -126,6 +134,9 @@ public class SlotMachine {
 
                 if (spins[0] >= 20) {
                     task.cancel();
+                    if (!Boolean.TRUE.equals(isSpinning.get(spinId))) {
+                        return;
+                    }
 
                     Material[] rolledSymbols = new Material[7];
                     for (int i = 0; i < 7; i++) {
@@ -163,6 +174,7 @@ public class SlotMachine {
 
                     inv.setItem(17, plugin.createItem(Material.LEVER, cm.getMessage("gui.slots.spin", "&6SPIN!")));
                     isSpinning.put(p.getUniqueId(), false);
+                    activeSpinBet.remove(p.getUniqueId());
 
                     int currentChips = plugin.getPlayerChips().getOrDefault(p.getUniqueId(), 0);
                     inv.setItem(20, plugin.createItem(Material.GOLD_NUGGET, cm.getMessage("gui.roulette.your_chips", "&6Chips: %amount%", "amount", plugin.formatNumber(currentChips))));
@@ -171,15 +183,20 @@ public class SlotMachine {
     }
 
     public void handlePlayerDisconnect(UUID uuid) {
-        if (isSpinning.containsKey(uuid) && isSpinning.get(uuid)) {
-            int betAmount = currentSlotBet.getOrDefault(uuid, 0);
-            if (betAmount > 0) {
-                plugin.getPlayerChips().put(uuid, plugin.getPlayerChips().getOrDefault(uuid, 0) + betAmount);
-                plugin.getLogger().info("Refunded " + betAmount + " chips to player " + uuid + " from Slot machine due to disconnection during spin");
-            }
-        }
-        isSpinning.remove(uuid);
+        Integer locked = activeSpinBet.get(uuid);
+        int betAmount = locked != null ? locked : currentSlotBet.getOrDefault(uuid, 0);
+        abortSpin(uuid, betAmount, true);
         currentSlotBet.remove(uuid);
+    }
+
+    private void abortSpin(UUID uuid, int betAmount, boolean refund) {
+        boolean wasSpinning = Boolean.TRUE.equals(isSpinning.remove(uuid));
+        Integer locked = activeSpinBet.remove(uuid);
+        int amount = locked != null ? locked : betAmount;
+        if (wasSpinning && refund && amount > 0) {
+            plugin.getPlayerChips().put(uuid, plugin.getPlayerChips().getOrDefault(uuid, 0) + amount);
+            plugin.getLogger().info("Refunded " + amount + " chips to player " + uuid + " from Slot machine due to disconnection during spin");
+        }
     }
 
     private Material getWeightedSymbol() {

@@ -101,7 +101,7 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
     private boolean leaderboardsEnabled = true;
 
     private boolean isConfigured = false;
-    private String economyMode = "VAULT";
+    private String economyMode = "AUTO";
     private Material itemResource = Material.DIAMOND;
     private int setupStep = 0;
 
@@ -219,18 +219,28 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             hasSpigot = true;
         } catch (NoSuchMethodException ignored) {}
 
-        boolean ecoReady = setupEconomy();
+        boolean pointsReady = getServer().getPluginManager().getPlugin("PlayerPoints") != null
+                && getServer().getPluginManager().isPluginEnabled("PlayerPoints");
+        boolean vaultReady = setupEconomy();
+        boolean ecoReady = pointsReady || vaultReady;
         if (!ecoReady) {
 
             return false;
         }
 
+        if (pointsReady && (!vaultReady || ru.stepanyaa.casinoRoulette.platform.Platforms.isFolia())) {
+            economyMode = "PLAYERPOINTS";
+        } else if (vaultReady) {
+            economyMode = "VAULT";
+        }
+
         isConfigured = true;
         configManager.getConfig().set("settings.is-configured", true);
-        if (configManager.getConfig().getString("settings.economy-mode") == null) {
-            configManager.getConfig().set("settings.economy-mode", economyMode);
-        }
+        configManager.getConfig().set("settings.economy-mode", economyMode);
         configManager.saveConfig();
+        if (adapter instanceof AbstractBukkitAdapter) {
+            ((AbstractBukkitAdapter) adapter).rebindEconomy();
+        }
 
         String done = "CasinoRoulette configured automatically: economy mode " + economyMode
                 + (hasSpigot ? "" : " (plain-text setup messages: no Spigot chat API)");
@@ -267,7 +277,7 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         FileConfiguration config = configManager.getConfig();
 
         isConfigured = config.getBoolean("settings.is-configured", false);
-        economyMode = config.getString("settings.economy-mode", "VAULT");
+        economyMode = config.getString("settings.economy-mode", "AUTO");
         try {
             itemResource = Material.valueOf(config.getString("settings.item-resource", "DIAMOND").toUpperCase());
         } catch (Exception e) {
@@ -303,6 +313,9 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             }
         }
         selectionLimits.putIfAbsent("default", 5);
+        if (adapter instanceof AbstractBukkitAdapter) {
+            ((AbstractBukkitAdapter) adapter).rebindEconomy();
+        }
         if (games != null) games.reload();
     }
 
@@ -472,11 +485,16 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
         } else if (this.setupStep == 1) {
             p.sendMessage(cm.getMessage("messages.setup.step2", "&bStep 2: choose the server currency system:"));
             boolean vaultInstalled = this.getServer().getPluginManager().getPlugin("Vault") != null;
+            boolean pointsInstalled = this.getServer().getPluginManager().getPlugin("PlayerPoints") != null;
             boolean ecoReady = vaultInstalled && this.setupEconomy();
             p.sendMessage(cm.getMessage(ecoReady ? "messages.setup.eco_vault" : "messages.setup.eco_vault_disabled", ecoReady ? "&a&l[ Vault Economy ]" : "&7&l[ Vault Economy ]") + " " +
                     cm.getMessage("messages.setup.command_hint", "&7/casino setup %type% %value%", "type", "eco", "value", "vault"));
+            p.sendMessage((pointsInstalled ? "&a&l[ PlayerPoints ]" : "&7&l[ PlayerPoints ]") + " " +
+                    cm.getMessage("messages.setup.command_hint", "&7/casino setup %type% %value%", "type", "eco", "value", "playerpoints"));
             p.sendMessage(cm.getMessage("messages.setup.eco_item", "&6&l[ Item Resource ]") + " " +
                     cm.getMessage("messages.setup.command_hint", "&7/casino setup %type% %value%", "type", "eco", "value", "item"));
+            p.sendMessage("&b&l[ AUTO ]" + " " +
+                    cm.getMessage("messages.setup.command_hint", "&7/casino setup %type% %value%", "type", "eco", "value", "auto"));
         }
         p.sendMessage(cm.getMessage("messages.setup.separator", "&6============================================="));
     }
@@ -522,7 +540,12 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
             }
             if (args.length > 2 && args[1].equalsIgnoreCase("eco")) {
                 String selectedEco = args[2].toUpperCase();
-                if (selectedEco.equals("VAULT") || selectedEco.equals("ITEM")) {
+                if (selectedEco.equals("PLAYER_POINTS") || selectedEco.equals("POINTS")) {
+                    selectedEco = "PLAYERPOINTS";
+                }
+                if (selectedEco.equals("VAULT") || selectedEco.equals("ITEM")
+                        || selectedEco.equals("PLAYERPOINTS") || selectedEco.equals("AUTO")
+                        || selectedEco.equals("INTERNAL")) {
                     configManager.getConfig().set("settings.economy-mode", selectedEco);
                     configManager.getConfig().set("settings.is-configured", true);
                     configManager.saveConfig();
@@ -748,26 +771,51 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
     private static final int[] WHEEL = {0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26};
 
     private void startGameTask() {
+        if (gameTask != null && !gameTask.isCancelled()) {
+            return;
+        }
+        if (timer <= 0) {
+            timer = timerDuration;
+        }
+        gameState = GameState.WAITING;
 
         gameTask = CasinoScheduler.timer(0L, 20L, task -> {
             if (playersInGame.isEmpty()) {
                 task.cancel();
+                gameTask = null;
                 gameState = GameState.WAITING;
                 timer = timerDuration;
                 return;
             }
             if (gameState == GameState.WAITING) {
                 timer--;
+                if (timer == 25 || timer == 20 || timer == 15 || timer == 10
+                        || timer == 5 || timer == 4 || timer == 3 || timer == 2 || timer == 1) {
+                    for (UUID uuid : new java.util.ArrayList<>(playersInGame)) {
+                        Player viewer = Bukkit.getPlayer(uuid);
+                        if (viewer != null) {
+                            playSpinSound(viewer, Math.min(2.0f, 0.7f + (Math.max(0, timerDuration - timer)) * 0.03f));
+                        }
+                    }
+                }
                 String clockName = configManager.getMessage("gui.roulette.accepting", "&6Accepting Bets...");
                 String clockLore = configManager.getMessage("gui.roulette.spinning_in", "&eSpinning in: %time%s", "time", timer);
                 final ItemStack clock = createItem(Material.CLOCK, clockName, clockLore);
 
                 forEachViewer((viewer, inventory) -> inventory.setItem(4, clock));
 
+                if (games != null) {
+                    games.gui().updateAllTables();
+                }
+
                 if (timer <= 0) {
                     gameState = GameState.SPINNING;
+                    if (games != null) {
+                        games.gui().updateAllTables();
+                    }
                     startSpinAnimation();
                     task.cancel();
+                    gameTask = null;
                 }
             }
         });
@@ -865,7 +913,7 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
                 }
             }
 
-            if (p != null && activeGameInventories.containsKey(uuid)) {
+            if (p != null && games != null) {
                 games.gui().updateTable(uuid);
             }
         }
@@ -875,13 +923,16 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
                 Player p = Bukkit.getPlayer(uuid);
                 if (p != null) {
                     p.sendMessage(prefix + configManager.getMessage("messages.roulette.spectate", "&7Result: %color%%number% (%colorname%)", "color", color.toString(), "number", winningNumber, "colorname", colorName));
-                    games.gui().updateTable(uuid);
+                    if (games != null) {
+                        games.gui().updateTable(uuid);
+                    }
                 }
             }
         }
 
         gameState = GameState.WAITING;
         timer = timerDuration;
+        gameTask = null;
         checkGameLoop();
     }
 
@@ -1074,6 +1125,10 @@ public class CasinoRoulette extends JavaPlugin implements Listener, CommandExecu
     public int getSetupStep() { return setupStep; }
     public boolean setupEconomy() {
         try {
+            if (getServer().getPluginManager().getPlugin("PlayerPoints") != null
+                    && getServer().getPluginManager().isPluginEnabled("PlayerPoints")) {
+                return true;
+            }
             if (getServer().getPluginManager().getPlugin("Vault") == null) return false;
             RegisteredServiceProvider<?> rsp = getServer().getServicesManager().getRegistration(Class.forName("net.milkbowl.vault.economy.Economy"));
             if (rsp == null) return false;

@@ -304,7 +304,8 @@ public final class CrashGame {
 
         String name;
         if (canCashOut) {
-            name = ctx.msg("gui.crash.cashout", "&aCASH OUT", "multiplier", twoDecimals(currentMultiplier));
+            name = ctx.msg("gui.crash.cashout", "&aCASH OUT x%multiplier%",
+                    "multiplier", twoDecimals(currentMultiplier));
         } else if (hasBet) {
             name = ctx.msg("gui.crash.already_claimed", "&cAlready cashed out");
         } else {
@@ -312,7 +313,8 @@ public final class CrashGame {
         }
 
         String lore = canCashOut
-                ? ctx.msg("gui.crash.cashout_lore", "&ePayout: %payout%", "payout",
+                ? ctx.msg("gui.crash.cashout_lore", "&eMultiplier: x%multiplier% &7| &ePayout: %payout%",
+                        "multiplier", twoDecimals(currentMultiplier), "payout",
                         ctx.formatNumber((long) (playerBets.getOrDefault(uuid, 0) * currentMultiplier)))
                 : ctx.msg("gui.crash.click_secure", "&8Click");
 

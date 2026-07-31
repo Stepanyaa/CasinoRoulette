@@ -135,6 +135,17 @@ public final class SpongeAdapter implements PlatformAdapter {
         return materials;
     }
 
+    public synchronized void configureEconomy(String preferred, double startingBalance,
+                                              String currencySymbol) {
+        EconomyManager previous = this.economyManager;
+        String mode = preferred == null ? "INTERNAL" : preferred.trim().toUpperCase(java.util.Locale.ROOT);
+        if (mode.equals("VAULT") || mode.equals("ITEM") || mode.equals("ITEMS")
+                || mode.equals("RESOURCE")) mode = "INTERNAL";
+        this.economyManager = new EconomyManager(logger, type(), dataFolder,
+                mode, startingBalance, currencySymbol);
+        if (previous != null) previous.shutdown();
+    }
+
     private CasinoPlayer wrap(Object serverPlayer) {
         try {
             UUID uuid = (UUID) SpongeReflection.call(serverPlayer, "uniqueId");
@@ -251,7 +262,8 @@ public final class SpongeAdapter implements PlatformAdapter {
 
     @Override
     public CasinoInventory createInventory(String title, int size, String guiId) {
-        return new SpongeCasinoInventory(guiId, title, size, logger, this::toItemStack);
+        return new SpongeCasinoInventory(guiId, title, size, logger, this::toItemStack,
+                eventBridge);
     }
 
     @Override
@@ -333,7 +345,7 @@ public final class SpongeAdapter implements PlatformAdapter {
         this.eventBridge.register();
 
         this.economyManager = new EconomyManager(logger, type(), dataFolder,
-                "AUTO", 0.0D, "");
+                "INTERNAL", 0.0D, "$");
     }
 
     @Override

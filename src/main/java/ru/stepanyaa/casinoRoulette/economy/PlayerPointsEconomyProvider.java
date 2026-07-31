@@ -10,8 +10,10 @@ public final class PlayerPointsEconomyProvider implements EconomyProvider {
     private final Method look;
     private final Method give;
     private final Method take;
+    private final Object plugin;
 
-    private PlayerPointsEconomyProvider(Object api, Method look, Method give, Method take) {
+    private PlayerPointsEconomyProvider(Object plugin, Object api, Method look, Method give, Method take) {
+        this.plugin = plugin;
         this.api = api;
         this.look = look;
         this.give = give;
@@ -22,9 +24,7 @@ public final class PlayerPointsEconomyProvider implements EconomyProvider {
         try {
             Class<?> bukkit = Class.forName("org.bukkit.Bukkit");
             Object manager = bukkit.getMethod("getPluginManager").invoke(null);
-            Object plugin = manager.getClass()
-                    .getMethod("getPlugin", String.class)
-                    .invoke(manager, "PlayerPoints");
+            Object plugin = findPlugin(manager);
             if (plugin == null) {
                 return null;
             }
@@ -33,8 +33,9 @@ public final class PlayerPointsEconomyProvider implements EconomyProvider {
                 return null;
             }
 
-            Object api = plugin.getClass().getMethod("getAPI").invoke(plugin);
+            Object api = resolveApi(plugin);
             if (api == null) {
+                logger.warning("PlayerPoints was found but its API handle is null. Skipping this provider.");
                 return null;
             }
 
@@ -47,13 +48,66 @@ public final class PlayerPointsEconomyProvider implements EconomyProvider {
                 return null;
             }
 
-            return new PlayerPointsEconomyProvider(api, look, give, take);
+            return new PlayerPointsEconomyProvider(plugin, api, look, give, take);
         } catch (ClassNotFoundException | NoSuchMethodException notPresent) {
             return null;
         } catch (Throwable failure) {
             logger.warning("PlayerPoints economy hook could not be created: " + failure);
             return null;
         }
+    }
+
+    private static Object findPlugin(Object manager) throws ReflectiveOperationException {
+        Method getPlugin = manager.getClass().getMethod("getPlugin", String.class);
+        for (String name : new String[] {"PlayerPoints", "Playerpoints", "playerpoints"}) {
+            Object plugin = getPlugin.invoke(manager, name);
+            if (plugin != null) {
+                return plugin;
+            }
+        }
+        return null;
+    }
+
+    private static Object resolveApi(Object plugin) throws ReflectiveOperationException {
+        try {
+            Method getApi = plugin.getClass().getMethod("getAPI");
+            Object api = getApi.invoke(plugin);
+            if (api != null) {
+                return api;
+            }
+        } catch (NoSuchMethodException ignored) {
+        }
+
+        try {
+            Method getInstance = plugin.getClass().getMethod("getInstance");
+            Object instance = getInstance.invoke(null);
+            if (instance != null) {
+                try {
+                    Object api = instance.getClass().getMethod("getAPI").invoke(instance);
+                    if (api != null) {
+                        return api;
+                    }
+                } catch (NoSuchMethodException ignored) {
+                }
+            }
+        } catch (NoSuchMethodException ignored) {
+        }
+
+        try {
+            Class<?> apiClass = Class.forName("org.black_ixx.playerpoints.PlayerPointsAPI");
+            for (Method candidate : plugin.getClass().getMethods()) {
+                if (candidate.getParameterCount() == 0
+                        && apiClass.isAssignableFrom(candidate.getReturnType())) {
+                    Object api = candidate.invoke(plugin);
+                    if (api != null) {
+                        return api;
+                    }
+                }
+            }
+        } catch (ClassNotFoundException ignored) {
+        }
+
+        return null;
     }
 
     private static Method find(Class<?> type, String name) {
@@ -91,13 +145,14 @@ public final class PlayerPointsEconomyProvider implements EconomyProvider {
     @Override
     public boolean isAvailable() {
         try {
+            if (plugin != null) {
+                return Boolean.TRUE.equals(plugin.getClass().getMethod("isEnabled").invoke(plugin));
+            }
             Object manager = Class.forName("org.bukkit.Bukkit")
                     .getMethod("getPluginManager").invoke(null);
-            Object plugin = manager.getClass()
-                    .getMethod("getPlugin", String.class)
-                    .invoke(manager, "PlayerPoints");
-            return plugin != null
-                    && Boolean.TRUE.equals(plugin.getClass().getMethod("isEnabled").invoke(plugin));
+            Object found = findPlugin(manager);
+            return found != null
+                    && Boolean.TRUE.equals(found.getClass().getMethod("isEnabled").invoke(found));
         } catch (Throwable gone) {
             return false;
         }
@@ -129,7 +184,11 @@ public final class PlayerPointsEconomyProvider implements EconomyProvider {
         int points = charge(amount);
 
         try {
-            return Boolean.TRUE.equals(take.invoke(api, player, points));
+            Object result = take.invoke(api, player, points);
+            if (result instanceof Boolean) {
+                return Boolean.TRUE.equals(result);
+            }
+            return result == null || result instanceof Number;
         } catch (Throwable failure) {
             return false;
         }
@@ -145,7 +204,11 @@ public final class PlayerPointsEconomyProvider implements EconomyProvider {
             return true;
         }
         try {
-            return Boolean.TRUE.equals(give.invoke(api, player, points));
+            Object result = give.invoke(api, player, points);
+            if (result instanceof Boolean) {
+                return Boolean.TRUE.equals(result);
+            }
+            return result == null || result instanceof Number;
         } catch (Throwable failure) {
             return false;
         }

@@ -4,6 +4,7 @@ import ru.stepanyaa.casinoRoulette.platform.CasinoInventory;
 import ru.stepanyaa.casinoRoulette.platform.CasinoItem;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -21,9 +22,12 @@ final class SpongeCasinoInventory implements CasinoInventory {
     private final Object inventory;
 
     private final CasinoItem[] contents;
+    private final SpongeEventBridge eventBridge;
+    private boolean callbacksRegistered;
 
     SpongeCasinoInventory(String guiId, String title, int size, Logger logger,
-                          Function<CasinoItem, Object> itemFactory) {
+                          Function<CasinoItem, Object> itemFactory,
+                          SpongeEventBridge eventBridge) {
         this.guiId = guiId;
         this.title = title == null ? "" : title;
 
@@ -31,6 +35,7 @@ final class SpongeCasinoInventory implements CasinoInventory {
         this.size = rows * 9;
         this.logger = logger;
         this.itemFactory = itemFactory;
+        this.eventBridge = eventBridge;
         this.contents = new CasinoItem[this.size];
 
         Object builtMenu = null;
@@ -47,7 +52,11 @@ final class SpongeCasinoInventory implements CasinoInventory {
         this.menu = builtMenu;
         this.inventory = builtInventory;
 
-        SpongeMenuRegistry.remember(builtMenu, builtInventory, guiId);
+        if (builtMenu != null) {
+            this.callbacksRegistered = registerCallbacks(builtMenu);
+        }
+        SpongeMenuRegistry.remember(builtMenu, builtInventory, guiId, this.size,
+                callbacksRegistered);
     }
 
     private Object buildViewable(int rows) throws ReflectiveOperationException {
@@ -94,6 +103,93 @@ final class SpongeCasinoInventory implements CasinoInventory {
         return built;
     }
 
+    private boolean registerCallbacks(Object inventoryMenu) {
+        if (eventBridge == null) {
+            return false;
+        }
+        boolean slotClicks = registerHandler(inventoryMenu, "registerSlotClick",
+                "org.spongepowered.api.item.inventory.menu.handler.SlotClickHandler", 5,
+                args -> {
+                    eventBridge.handleMenuClick(guiId, size, args[0], args[1],
+                            ((Number) args[3]).intValue(), args[4]);
+                    return Boolean.FALSE;
+                });
+
+        if (!slotClicks) {
+            try {
+                callByName(inventoryMenu, "unregisterAll");
+            } catch (Throwable ignored) {
+            }
+            logger.log(Level.WARNING, "Could not register Sponge menu click callbacks for "
+                    + guiId + "; the global click listener will be used instead.");
+            return false;
+        }
+
+        registerHandler(inventoryMenu, "registerKeySwap",
+                "org.spongepowered.api.item.inventory.menu.handler.KeySwapHandler", 5,
+                args -> {
+                    eventBridge.handleMenuClick(guiId, size, args[0], args[1],
+                            ((Number) args[3]).intValue(), args[4]);
+                    return Boolean.FALSE;
+                });
+
+        registerHandler(inventoryMenu, "registerClose",
+                "org.spongepowered.api.item.inventory.menu.handler.CloseHandler", 2,
+                args -> {
+                    eventBridge.handleMenuClose(guiId, args[0], args[1]);
+                    return null;
+                });
+
+        return true;
+    }
+
+    private boolean registerHandler(Object inventoryMenu, String registerMethod,
+                                    String handlerType, int expectedArguments,
+                                    java.util.function.Function<Object[], Object> body) {
+        try {
+            Class<?> handlerClass = SpongeReflection.type(handlerType);
+            ClassLoader loader = handlerClass.getClassLoader();
+            if (loader == null) {
+                loader = getClass().getClassLoader();
+            }
+
+            Object proxy = Proxy.newProxyInstance(loader, new Class<?>[]{handlerClass},
+                    (instance, method, args) -> {
+                        if (method.getName().equals("handle")
+                                && args != null && args.length >= expectedArguments) {
+                            Object result = body.apply(args);
+                            if (result != null) {
+                                return result;
+                            }
+                            return method.getReturnType() == void.class
+                                    ? null
+                                    : proxyDefault(instance, method, args);
+                        }
+                        return proxyDefault(instance, method, args);
+                    });
+
+            callRequired(inventoryMenu, registerMethod, handlerClass, proxy);
+            return true;
+        } catch (Throwable failure) {
+            logger.log(Level.WARNING, "Sponge " + registerMethod + " is unavailable for "
+                    + guiId + ": " + failure);
+            return false;
+        }
+    }
+
+    private static Object proxyDefault(Object proxy, Method method, Object[] args) {
+        if (method.getName().equals("toString")) return "CasinoRouletteMenuHandler";
+        if (method.getName().equals("hashCode")) return System.identityHashCode(proxy);
+        if (method.getName().equals("equals")) return args != null && args.length == 1 && proxy == args[0];
+        if (method.getReturnType() == boolean.class) return Boolean.FALSE;
+        return null;
+    }
+
+    private void callRequired(Object target, String name, Class<?> parameter, Object value)
+            throws ReflectiveOperationException {
+        SpongeReflection.method(target.getClass(), name, parameter).invoke(target, value);
+    }
+
     private Object callByName(Object target, String name, Object... args) {
         if (target == null) {
             return null;
@@ -116,7 +212,10 @@ final class SpongeCasinoInventory implements CasinoInventory {
                 continue;
             }
             try {
-                method.setAccessible(true);
+                try {
+                    method.setAccessible(true);
+                } catch (Throwable inaccessible) {
+                }
                 return method.invoke(target, args);
             } catch (IllegalArgumentException wrongOverload) {
 
@@ -180,7 +279,6 @@ final class SpongeCasinoInventory implements CasinoInventory {
 
     @Override
     public void refresh() {
-
     }
 
     @Override
@@ -198,7 +296,10 @@ final class SpongeCasinoInventory implements CasinoInventory {
                 continue;
             }
             try {
-                method.setAccessible(true);
+                try {
+                    method.setAccessible(true);
+                } catch (Throwable inaccessible) {
+                }
                 method.invoke(inventory, slot, stack);
                 return;
             } catch (Throwable failure) {

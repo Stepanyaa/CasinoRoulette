@@ -69,6 +69,44 @@ public final class BukkitCasinoPlayer extends BukkitCasinoSender implements Casi
     }
 
     @Override
+    public int countItem(String materialId) {
+        org.bukkit.Material material = resolveMaterial(materialId);
+        if (material == null) return 0;
+        int total = 0;
+        for (ItemStack stack : player.getInventory().getContents()) {
+            if (stack != null && stack.getType() == material) total += stack.getAmount();
+        }
+        return total;
+    }
+
+    @Override
+    public boolean takeItem(String materialId, int amount) {
+        if (amount <= 0) return true;
+        org.bukkit.Material material = resolveMaterial(materialId);
+        if (material == null || countItem(materialId) < amount) return false;
+        int remaining = amount;
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int slot = 0; slot < contents.length && remaining > 0; slot++) {
+            ItemStack stack = contents[slot];
+            if (stack == null || stack.getType() != material) continue;
+            int removed = Math.min(remaining, stack.getAmount());
+            stack.setAmount(stack.getAmount() - removed);
+            if (stack.getAmount() <= 0) player.getInventory().setItem(slot, null);
+            remaining -= removed;
+        }
+        return remaining == 0;
+    }
+
+    private static org.bukkit.Material resolveMaterial(String id) {
+        if (id == null) return null;
+        String value = id.trim().toUpperCase(Locale.ROOT);
+        int colon = value.indexOf(':');
+        if (colon >= 0) value = value.substring(colon + 1);
+        try { return org.bukkit.Material.valueOf(value); }
+        catch (IllegalArgumentException unknown) { return null; }
+    }
+
+    @Override
     public void playSound(String soundId, float volume, float pitch) {
         final Sound sound = resolveSound(soundId);
         if (sound == null) {

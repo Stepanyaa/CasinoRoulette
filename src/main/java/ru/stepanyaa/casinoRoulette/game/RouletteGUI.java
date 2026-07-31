@@ -180,6 +180,7 @@ public final class RouletteGUI {
 
         screen.refresh();
         player.openInventory(screen);
+        ctx.playMenu(player);
     }
 
     private CasinoItem profileHead(CasinoPlayer player) {
@@ -237,6 +238,7 @@ public final class RouletteGUI {
 
         screen.refresh();
         player.openInventory(screen);
+        ctx.playMenu(player);
     }
 
     private int packageSize(int index) {
@@ -283,6 +285,7 @@ public final class RouletteGUI {
 
         screen.refresh();
         player.openInventory(screen);
+        ctx.playMenu(player);
     }
 
     public void openSellChipsMenu(CasinoPlayer player) {
@@ -313,6 +316,7 @@ public final class RouletteGUI {
 
         screen.refresh();
         player.openInventory(screen);
+        ctx.playMenu(player);
     }
 
     private void handleBuyClick(CasinoPlayer player, int slot) {
@@ -340,7 +344,7 @@ public final class RouletteGUI {
         int cost = packageSize(slot - 10);
         int gain = (int) (cost * (1 - tax()));
 
-        if (ctx.economy() == null || !ctx.economy().withdraw(uuid, cost)) {
+        if (!ctx.withdrawCurrency(player, cost)) {
             player.sendMessage(prefix + ctx.msg("messages.insufficient_funds", "&cInsufficient funds!"));
             return;
         }
@@ -382,7 +386,7 @@ public final class RouletteGUI {
             return;
         }
 
-        if (ctx.economy() == null || !ctx.economy().deposit(uuid, payout)) {
+        if (!ctx.depositCurrency(player, payout)) {
             ctx.chips().add(uuid, chipsCost);
             player.sendMessage(prefix + ctx.msg("messages.economy_unavailable",
                     "&cEconomy is unavailable, your chips were returned."));
@@ -408,6 +412,7 @@ public final class RouletteGUI {
 
         updateTable(uuid);
         player.openInventory(screen);
+        ctx.playMenu(player);
         host.checkGameLoop();
     }
 
@@ -712,12 +717,15 @@ public final class RouletteGUI {
 
     public void handleClose(CasinoEvents.InventoryClose event) {
         if (GUI_TABLE.equals(event.guiId())) {
-            tables.remove(event.player().uuid());
+            UUID uuid = event.player().uuid();
+            tables.remove(uuid);
+            host.playersInGame().remove(uuid);
         }
     }
 
     public void forget(UUID uuid) {
         tables.remove(uuid);
+        host.playersInGame().remove(uuid);
     }
 
     private void fill(CasinoInventory screen, int size) {
@@ -733,6 +741,9 @@ public final class RouletteGUI {
     }
 
     private String formatBalance(CasinoPlayer player) {
+        if (ctx.itemMode()) {
+            return ctx.formatNumber((long) ctx.currencyBalance(player)) + " " + ctx.currencyName();
+        }
         if (ctx.economy() == null || !ctx.economy().isAvailable()) {
             return "-";
         }

@@ -8,6 +8,10 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.function.Consumer;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public final class SpongeSchedulerBackend implements SchedulerBackend {
@@ -32,6 +36,11 @@ public final class SpongeSchedulerBackend implements SchedulerBackend {
             Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
 
     private volatile boolean shuttingDown;
+    private final ScheduledExecutorService fallbackTimer = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "CasinoRoulette-Sponge-Timer");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     public SpongeSchedulerBackend(Object pluginContainer, Logger logger) {
         this.pluginContainer = pluginContainer;
@@ -161,8 +170,37 @@ public final class SpongeSchedulerBackend implements SchedulerBackend {
             runnable.bind(handle);
             return handle;
         } catch (Throwable failure) {
-            return inline(runnable, failure);
+            logger.warning("Sponge repeating scheduler failed; using protected timer fallback: "
+                    + failure);
+            return fallbackRepeating(runnable, delayTicks, periodTicks);
         }
+    }
+
+    private CasinoTask fallbackRepeating(RepeatingBody runnable, long delayTicks,
+                                         long periodTicks) {
+        final class FallbackTask implements CasinoTask {
+            private volatile ScheduledFuture<?> future;
+            private volatile boolean cancelled;
+
+            @Override public void cancel() {
+                cancelled = true;
+                ScheduledFuture<?> current = future;
+                if (current != null) current.cancel(false);
+            }
+            @Override public boolean isCancelled() { return cancelled; }
+        }
+        FallbackTask handle = new FallbackTask();
+        runnable.bind(handle);
+        Runnable guarded = () -> {
+            if (handle.isCancelled() || shuttingDown) return;
+            try { runnable.run(); }
+            catch (Throwable failure) { logger.warning("Fallback timer task failed: " + failure); }
+        };
+        handle.future = fallbackTimer.scheduleAtFixedRate(guarded,
+                Math.max(0L, delayTicks) * MILLIS_PER_TICK,
+                Math.max(1L, periodTicks) * MILLIS_PER_TICK,
+                TimeUnit.MILLISECONDS);
+        return handle;
     }
 
     private Object buildAsync(Runnable body, long delayTicks, long periodTicks)
@@ -272,5 +310,6 @@ public final class SpongeSchedulerBackend implements SchedulerBackend {
             }
         }
         tracked.clear();
+        fallbackTimer.shutdownNow();
     }
 }

@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 public class UpdateChecker {
 
     private final CasinoRoulette plugin;
-    private static final String CURRENT_VERSION = "1.2.0";
+    private static final String CURRENT_VERSION = "1.3.0";
     private static final String MODRINTH_API = "https://api.modrinth.com/v2/project/casinoroulette/version";
 
     public UpdateChecker(CasinoRoulette plugin) {

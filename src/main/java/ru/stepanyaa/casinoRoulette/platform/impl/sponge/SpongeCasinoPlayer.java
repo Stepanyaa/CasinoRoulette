@@ -49,7 +49,9 @@ final class SpongeCasinoPlayer extends SpongeCasinoSender implements CasinoPlaye
                         .invoke(menu, subject);
                 java.util.Optional<Object> container = SpongeReflection.unwrap(opened);
                 if (container.isPresent()) {
-                    SpongeMenuRegistry.remember(container.get(), null, inventory.guiId());
+                    SpongeMenuRegistry.MenuInfo info = SpongeMenuRegistry.infoOf(menu);
+                    SpongeMenuRegistry.rememberContainer(container.get(), inventory.guiId(),
+                            inventory.size(), info != null && info.callbacks);
                 }
             } catch (Throwable failure) {
 
@@ -91,6 +93,62 @@ final class SpongeCasinoPlayer extends SpongeCasinoSender implements CasinoPlaye
         });
     }
 
+    @Override
+    public int countItem(String materialId) {
+        Object expected = SpongeReflection.registryValue("ITEM_TYPE", materialId).orElse(null);
+        if (expected == null) return 0;
+        try {
+            Object inventory = SpongeReflection.call(subject, "inventory");
+            Object slots = SpongeReflection.call(inventory, "slots");
+            if (!(slots instanceof Iterable)) return 0;
+            int total = 0;
+            for (Object slot : (Iterable<?>) slots) {
+                Object stack = SpongeReflection.unwrap(SpongeReflection.call(slot, "peek")).orElse(null);
+                if (stack == null) continue;
+                Object type = SpongeReflection.call(stack, "type");
+                if (expected.equals(type)) {
+                    Object quantity = SpongeReflection.call(stack, "quantity");
+                    if (quantity instanceof Number) total += ((Number) quantity).intValue();
+                }
+            }
+            return total;
+        } catch (Throwable failure) {
+            return 0;
+        }
+    }
+
+    @Override
+    public boolean takeItem(String materialId, int amount) {
+        if (amount <= 0) return true;
+        Object expected = SpongeReflection.registryValue("ITEM_TYPE", materialId).orElse(null);
+        if (expected == null || countItem(materialId) < amount) return false;
+        try {
+            Object inventory = SpongeReflection.call(subject, "inventory");
+            Object slots = SpongeReflection.call(inventory, "slots");
+            int remaining = amount;
+            for (Object slot : (Iterable<?>) slots) {
+                if (remaining <= 0) break;
+                Object stack = SpongeReflection.unwrap(SpongeReflection.call(slot, "peek")).orElse(null);
+                if (stack == null || !expected.equals(SpongeReflection.call(stack, "type"))) continue;
+                Object quantity = SpongeReflection.call(stack, "quantity");
+                int held = quantity instanceof Number ? ((Number) quantity).intValue() : 0;
+                if (held <= 0) continue;
+                int remove = Math.min(held, remaining);
+                for (java.lang.reflect.Method method : slot.getClass().getMethods()) {
+                    if (method.getName().equals("poll") && method.getParameterCount() == 1
+                            && method.getParameterTypes()[0] == int.class) {
+                        method.invoke(slot, remove);
+                        remaining -= remove;
+                        break;
+                    }
+                }
+            }
+            return remaining == 0;
+        } catch (Throwable failure) {
+            return false;
+        }
+    }
+
     private void dropAtFeet(Object rejectedSnapshots) {
         try {
             Object world = SpongeReflection.call(subject, "world");
@@ -129,7 +187,7 @@ final class SpongeCasinoPlayer extends SpongeCasinoSender implements CasinoPlaye
         runOwning(() -> {
             try {
                 java.util.Optional<Object> soundType =
-                        SpongeReflection.registryValue("SOUND_TYPE", soundId);
+                        SpongeReflection.registryValue("SOUND_TYPE", spongeSoundId(soundId));
                 if (!soundType.isPresent()) {
 
                     return;
@@ -157,6 +215,24 @@ final class SpongeCasinoPlayer extends SpongeCasinoSender implements CasinoPlaye
 
     private static float clampPitch(float pitch) {
         return Math.max(0.5F, Math.min(2.0F, pitch));
+    }
+
+    private static String spongeSoundId(String id) {
+        if (id == null) return "";
+        String value = id.trim().toLowerCase(java.util.Locale.ROOT);
+        if (value.startsWith("minecraft:")) value = value.substring("minecraft:".length());
+        switch (value) {
+            case "ui_button_click": value = "ui.button.click"; break;
+            case "block_chest_open": value = "block.chest.open"; break;
+            case "block_note_block_pling": value = "block.note_block.pling"; break;
+            case "entity_player_levelup": value = "entity.player.levelup"; break;
+            case "entity_villager_no": value = "entity.villager.no"; break;
+            case "entity_experience_orb_pickup": value = "entity.experience_orb.pickup"; break;
+            case "entity_generic_explode": value = "entity.generic.explode"; break;
+            default:
+                break;
+        }
+        return "minecraft:" + value;
     }
 
     @Override

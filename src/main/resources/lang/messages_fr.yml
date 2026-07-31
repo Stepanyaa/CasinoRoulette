@@ -1,7 +1,7 @@
 # CasinoRoulette language file (fr)
 # Auto-generated - full translations
 
-config-version: 1.2.0
+config-version: 1.3.0
 common:
   time_short: '%hours%h %minutes%min'
   back: '&cRetour'
@@ -94,8 +94,8 @@ gui:
     multiplier: '&6x%multiplier%'
     awaiting: '&7En attente de mise...'
     crashed: '&cCrash à x%multiplier%'
-    cashout: '&aRETIRER'
-    cashout_lore: '&eGain: %payout%'
+    cashout: '&aRETIRER x%multiplier%'
+    cashout_lore: '&eX: x%multiplier% &7| &eGain: %payout%'
     click_secure: '&8Cliquez pour sécuriser'
     already_claimed: '&cDéjà retiré'
     no_bet: '&7Aucune mise'
@@ -182,6 +182,7 @@ messages:
     separator: '&6============================================='
     wizard_title: '&e[ CasinoRoulette — Configuration ]'
     wizard_subtitle: '&fConfigurons le plugin!'
+    auto_done: '&a[CasinoRoulette] &7Configuration terminée automatiquement. Économie : &f%mode%'
     step1: '&bÉtape 1: choisissez la langue du plugin:'
     step2: '&bÉtape 2: choisissez le système de monnaie:'
     already_configured: '&cLe plugin est déjà configuré!'
@@ -200,6 +201,9 @@ messages:
     eco_vault: '&a&l[ Vault Economy ]'
     eco_vault_disabled: '&7&l[ Vault Economy ]'
     eco_item: '&6&l[ Monnaie objet ]'
+    eco_playerpoints: '&a&l[ PlayerPoints ]'
+    eco_playerpoints_disabled: '&7&l[ PlayerPoints ]'
+    eco_auto: '&b&l[ AUTO ]'
     language:
       en: '&a&l[ English ]'
       ru: '&c&l[ Русский ]'

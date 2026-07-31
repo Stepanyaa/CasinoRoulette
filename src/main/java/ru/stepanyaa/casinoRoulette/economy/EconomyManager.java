@@ -4,50 +4,118 @@ import ru.stepanyaa.casinoRoulette.platform.PlatformType;
 
 import java.io.File;
 import java.util.UUID;
+import java.util.Map;
 import java.util.logging.Logger;
 
 public final class EconomyManager implements EconomyProvider {
 
     private final Logger logger;
-    private final EconomyProvider delegate;
+    private final PlatformType platform;
+    private final File dataFolder;
+    private final double startingBalance;
+    private final String currencySymbol;
     private final InternalEconomyProvider internal;
+
+    private volatile String preferred;
+    private volatile EconomyProvider delegate;
 
     public EconomyManager(Logger logger, PlatformType platform, File dataFolder,
                           String preferred, double startingBalance, String currencySymbol) {
         this.logger = logger;
+        this.platform = platform;
+        this.dataFolder = dataFolder;
+        this.startingBalance = startingBalance;
+        this.currencySymbol = currencySymbol;
         this.internal = new InternalEconomyProvider(logger, dataFolder, startingBalance, currencySymbol);
+        this.preferred = preferred;
         this.delegate = select(logger, platform, preferred);
         logger.info("Economy provider: " + this.delegate.name());
     }
 
+    public synchronized void rebind(String preferredMode) {
+        if (preferredMode != null && !preferredMode.trim().isEmpty()) {
+            this.preferred = preferredMode;
+        }
+        EconomyProvider previous = this.delegate;
+        EconomyProvider next = select(logger, platform, this.preferred);
+        if (previous != null && previous != internal && previous != next) {
+            try {
+                previous.shutdown();
+            } catch (Throwable ignored) {
+            }
+        }
+        this.delegate = next;
+        if (previous == null || !previous.name().equals(next.name())) {
+            logger.info("Economy provider rebound to: " + next.name());
+        }
+    }
+
     private EconomyProvider select(Logger logger, PlatformType platform, String preferred) {
         String mode = preferred == null ? "AUTO" : preferred.trim().toUpperCase(java.util.Locale.ROOT);
+        if (mode.isEmpty()) {
+            mode = "AUTO";
+        }
 
         if ("INTERNAL".equals(mode)) {
             return internal;
         }
 
-        if (platform.isBukkitFamily() && (mode.equals("AUTO") || mode.equals("VAULT"))) {
+        boolean folia = platform == PlatformType.FOLIA;
+        boolean wantPoints = mode.equals("AUTO")
+                || mode.equals("PLAYERPOINTS")
+                || mode.equals("PLAYER_POINTS")
+                || mode.equals("POINTS")
+                || (folia && (mode.equals("VAULT") || mode.equals("AUTO")));
+        boolean wantVault = mode.equals("AUTO") || mode.equals("VAULT");
+        boolean vaultFirst = wantVault && !folia;
+
+        if (platform.isBukkitFamily() && wantPoints && !vaultFirst) {
+            EconomyProvider points = PlayerPointsEconomyProvider.tryCreate(logger);
+            if (points != null) {
+                if (mode.equals("VAULT")) {
+                    logger.info("Folia detected with economy-mode VAULT: using PlayerPoints instead "
+                            + "(Vault is unreliable on Folia). Set economy-mode to PLAYERPOINTS "
+                            + "to silence this message.");
+                }
+                return points;
+            }
+            if (mode.equals("PLAYERPOINTS") || mode.equals("PLAYER_POINTS") || mode.equals("POINTS")) {
+                logger.warning("economy-mode is PLAYERPOINTS but PlayerPoints is unavailable. "
+                        + "Falling back to the internal economy.");
+                return internal;
+            }
+        }
+
+        if (platform.isBukkitFamily() && wantVault) {
             EconomyProvider vault = VaultEconomyProvider.tryCreate(logger);
             if (vault != null) {
                 return vault;
             }
-            if (mode.equals("VAULT")) {
-                logger.warning("economy-mode is VAULT but Vault is unavailable. "
-                        + "Falling back to the internal economy.");
+            if (mode.equals("VAULT") && !folia) {
+                logger.warning("economy-mode is VAULT but Vault is unavailable; "
+                        + "trying PlayerPoints, then the internal economy.");
             }
         }
 
-        if (platform.isBukkitFamily() && (mode.equals("AUTO") || mode.equals("PLAYERPOINTS")
-                || mode.equals("PLAYER_POINTS") || mode.equals("POINTS"))) {
+        if (platform.isBukkitFamily() && wantPoints && vaultFirst) {
             EconomyProvider points = PlayerPointsEconomyProvider.tryCreate(logger);
             if (points != null) {
                 return points;
             }
-            if (!mode.equals("AUTO")) {
+            if (mode.equals("PLAYERPOINTS") || mode.equals("PLAYER_POINTS") || mode.equals("POINTS")) {
                 logger.warning("economy-mode is PLAYERPOINTS but PlayerPoints is unavailable. "
                         + "Falling back to the internal economy.");
             }
+        }
+
+        if (platform.isBukkitFamily() && mode.equals("VAULT")) {
+            EconomyProvider points = PlayerPointsEconomyProvider.tryCreate(logger);
+            if (points != null) {
+                logger.info("economy-mode is VAULT but Vault is unavailable; using PlayerPoints.");
+                return points;
+            }
+            logger.warning("economy-mode is VAULT but neither Vault nor PlayerPoints is available; "
+                    + "casino exchange falls back to the internal economy.");
         }
 
         if (platform.isSpongeFamily() && (mode.equals("AUTO") || mode.equals("SPONGE"))) {
@@ -69,11 +137,19 @@ public final class EconomyManager implements EconomyProvider {
     }
 
     private EconomyProvider live() {
-        if (!delegate.isAvailable()) {
-
+        EconomyProvider current = delegate;
+        if (current == null || !current.isAvailable()) {
+            if (platform.isBukkitFamily() && current != internal) {
+                EconomyProvider points = PlayerPointsEconomyProvider.tryCreate(logger);
+                if (points != null) {
+                    this.delegate = points;
+                    logger.info("Economy provider late-bound to: " + points.name());
+                    return points;
+                }
+            }
             return internal;
         }
-        return delegate;
+        return current;
     }
 
     @Override
@@ -105,12 +181,17 @@ public final class EconomyManager implements EconomyProvider {
     public boolean deposit(UUID player, double amount) {
         boolean ok = live().deposit(player, amount);
         if (!ok) {
-
             logger.severe("PAYOUT FAILED for " + player + " amount=" + amount
                     + " provider=" + live().name() + ". Compensate this player manually.");
         }
         return ok;
     }
+
+    @Override public boolean setBalance(UUID player, double amount) {
+        return amount >= 0 && live().setBalance(player, amount);
+    }
+
+    @Override public Map<UUID, Double> balances() { return live().balances(); }
 
     @Override
     public String format(double amount) {
@@ -125,7 +206,10 @@ public final class EconomyManager implements EconomyProvider {
     @Override
     public void shutdown() {
         try {
-            delegate.shutdown();
+            EconomyProvider current = delegate;
+            if (current != null) {
+                current.shutdown();
+            }
         } finally {
             if (delegate != internal) {
                 internal.shutdown();

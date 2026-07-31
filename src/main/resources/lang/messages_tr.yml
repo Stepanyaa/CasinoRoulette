@@ -1,7 +1,7 @@
 # CasinoRoulette language file (tr)
 # Auto-generated - full translations
 
-config-version: 1.2.0
+config-version: 1.3.0
 common:
   time_short: '%hours%sa %minutes%dk'
   back: '&cGeri'
@@ -94,8 +94,8 @@ gui:
     multiplier: '&6x%multiplier%'
     awaiting: '&7Bahis bekleniyor...'
     crashed: '&cx%multiplier% çöktü'
-    cashout: '&aÇEK'
-    cashout_lore: '&eÖdeme: %payout%'
+    cashout: '&aÇEK x%multiplier%'
+    cashout_lore: '&eX: x%multiplier% &7| &eÖdeme: %payout%'
     click_secure: '&8Almak için tıkla'
     already_claimed: '&cZaten çekildi'
     no_bet: '&7Bahis yok'
@@ -182,6 +182,7 @@ messages:
     separator: '&6============================================='
     wizard_title: '&e[ CasinoRoulette — Kurulum ]'
     wizard_subtitle: '&fEklentiyi ayarlayalım!'
+    auto_done: '&a[CasinoRoulette] &7Kurulum otomatik tamamlandı. Ekonomi: &f%mode%'
     step1: '&bAdım 1: eklenti dilini seç:'
     step2: '&bAdım 2: sunucu para sistemini seç:'
     already_configured: '&cEklenti zaten yapılandırılmış!'
@@ -200,6 +201,9 @@ messages:
     eco_vault: '&a&l[ Vault Economy ]'
     eco_vault_disabled: '&7&l[ Vault Economy ]'
     eco_item: '&6&l[ Eşya Parası ]'
+    eco_playerpoints: '&a&l[ PlayerPoints ]'
+    eco_playerpoints_disabled: '&7&l[ PlayerPoints ]'
+    eco_auto: '&b&l[ AUTO ]'
     language:
       en: '&a&l[ English ]'
       ru: '&c&l[ Русский ]'

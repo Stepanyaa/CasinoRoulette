@@ -109,6 +109,9 @@ public final class GameContext {
         if (!custom.isEmpty()) {
             return custom;
         }
+        if (itemMode()) {
+            return itemCurrencyMaterial().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
+        }
         String fromEconomy = economy() == null ? "" : String.valueOf(economy().currencyName()).trim();
         if (!fromEconomy.isEmpty() && !fromEconomy.equals("null")) {
             return fromEconomy;
@@ -121,9 +124,39 @@ public final class GameContext {
     }
 
     public boolean itemMode() {
-        String mode = config().getString("settings.economy-mode", "VAULT");
+        String mode = config().getString("settings.economy-mode",
+                config().getString("economy-mode", "AUTO"));
         mode = mode == null ? "" : mode.trim().toUpperCase(java.util.Locale.ROOT);
         return mode.equals("ITEM") || mode.equals("ITEMS") || mode.equals("RESOURCE");
+    }
+
+    public String itemCurrencyMaterial() {
+        return config().getString("settings.item-resource",
+                config().getString("item-resource", "DIAMOND"));
+    }
+
+    public double currencyBalance(CasinoPlayer player) {
+        if (player == null) return 0.0D;
+        return itemMode() ? player.countItem(itemCurrencyMaterial())
+                : economy() == null ? 0.0D : economy().balance(player.uuid());
+    }
+
+    public boolean withdrawCurrency(CasinoPlayer player, int amount) {
+        if (player == null || amount <= 0) return amount <= 0;
+        return itemMode() ? player.takeItem(itemCurrencyMaterial(), amount)
+                : economy() != null && economy().withdraw(player.uuid(), amount);
+    }
+
+    public boolean depositCurrency(CasinoPlayer player, int amount) {
+        if (player == null || amount <= 0) return amount <= 0;
+        if (!itemMode()) return economy() != null && economy().deposit(player.uuid(), amount);
+        int remaining = amount;
+        while (remaining > 0) {
+            int stack = Math.min(64, remaining);
+            player.giveItem(CasinoItem.of(itemCurrencyMaterial()).amount(stack).build());
+            remaining -= stack;
+        }
+        return true;
     }
 
     public int minBet() {

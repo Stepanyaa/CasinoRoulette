@@ -389,12 +389,15 @@ public final class StandaloneGameState implements ChipsBank, StatsStore, Roulett
 
     @Override
     public void checkGameLoop() {
-        if (roundTask != null || ctx == null || playersInGame.isEmpty()) {
+        if (ctx == null || playersInGame.isEmpty()) {
+            return;
+        }
+        if (roundTask != null && !roundTask.isCancelled()) {
             return;
         }
         timer = timerDuration();
         state = State.WAITING;
-        roundTask = CasinoScheduler.timer(20L, 20L, this::tick);
+        roundTask = CasinoScheduler.timer(0L, 20L, this::tick);
     }
 
     private void tick(CasinoTask task) {
@@ -411,17 +414,29 @@ public final class StandaloneGameState implements ChipsBank, StatsStore, Roulett
             }
             if (timer > 0) {
                 timer--;
-                games.gui().updateAllTables();
+                if (timer <= 5 || timer % 5 == 0) {
+                    float pitch = 0.7F + (30 - Math.min(30, timer)) * 0.03F;
+                    for (UUID uuid : new java.util.ArrayList<>(playersInGame)) {
+                        CasinoPlayer player = ctx.player(uuid).orElse(null);
+                        if (player != null) ctx.playSpin(player, pitch);
+                    }
+                }
+                if (games != null) {
+                    games.gui().updateAllTables();
+                }
                 return;
             }
             state = State.SPINNING;
-            games.gui().updateAllTables();
+            if (games != null) {
+                games.gui().updateAllTables();
+            }
             spin();
         } catch (Throwable failure) {
 
             logger.warning("Roulette round failed: " + failure);
             state = State.WAITING;
             timer = timerDuration();
+            roundTask = null;
         }
     }
 

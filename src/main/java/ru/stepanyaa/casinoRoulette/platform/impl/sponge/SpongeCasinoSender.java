@@ -21,7 +21,7 @@ class SpongeCasinoSender implements CasinoSender {
 
     @Override
     public void sendMessage(String message) {
-        if (message == null || message.isEmpty()) {
+        if (message == null || message.isEmpty() || subject == null) {
             return;
         }
         SpongeReflection.sendMessage(subject, message);
@@ -35,6 +35,9 @@ class SpongeCasinoSender implements CasinoSender {
 
         if (console) {
             return true;
+        }
+        if (subject == null) {
+            return false;
         }
         try {
             Object result = SpongeReflection

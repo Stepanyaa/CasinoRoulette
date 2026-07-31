@@ -7,6 +7,7 @@ import ru.stepanyaa.casinoRoulette.platform.CasinoInventory;
 import ru.stepanyaa.casinoRoulette.platform.CasinoItem;
 import ru.stepanyaa.casinoRoulette.platform.CasinoPlayer;
 import ru.stepanyaa.casinoRoulette.scheduler.CasinoScheduler;
+import ru.stepanyaa.casinoRoulette.scheduler.CasinoTask;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,6 +41,8 @@ public final class SlotMachine {
     private final Map<UUID, Integer> currentBet = new ConcurrentHashMap<>();
     private final Map<UUID, CasinoInventory> screens = new ConcurrentHashMap<>();
     private final Set<UUID> spinning = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, Integer> activeSpinBet = new ConcurrentHashMap<>();
+    private final Map<UUID, CasinoTask> activeSpinTasks = new ConcurrentHashMap<>();
 
     private final Map<String, Integer> weights = new LinkedHashMap<>();
 
@@ -77,6 +80,10 @@ public final class SlotMachine {
     }
 
     public void open(CasinoPlayer player) {
+        if (spinning.contains(player.uuid()) && !activeSpinTasks.containsKey(player.uuid())) {
+            abortSpin(player.uuid(), activeSpinBet.getOrDefault(player.uuid(), 0), true);
+        }
+
         CasinoInventory screen = ctx.inventory(GUI_ID, ctx.msg("gui.titles.slots", "Slot Machine"), SIZE);
         CasinoItem filler = ctx.item("BLACK_STAINED_GLASS_PANE", " ");
         for (int slot = 0; slot < SIZE; slot++) {
@@ -194,9 +201,10 @@ public final class SlotMachine {
         final List<String> symbols = new ArrayList<>(weights.keySet());
         final int[] frame = {0};
 
-        CasinoScheduler.timerAtEntity(player.handle(), 0L, 2L, task -> {
-            if (!player.isOnline()) {
-
+        activeSpinBet.put(uuid, bet);
+        CasinoTask spinTask = CasinoScheduler.timerAtEntity(player.handle(), 0L, 2L, task -> {
+            if (!player.isOnline() || !spinning.contains(uuid)) {
+                abortSpin(uuid, bet, true);
                 task.cancel();
                 return;
             }
@@ -213,12 +221,17 @@ public final class SlotMachine {
                 return;
             }
             task.cancel();
+            activeSpinTasks.remove(uuid);
             settle(player, screen, bet);
         });
+        activeSpinTasks.put(uuid, spinTask);
     }
 
     private void settle(CasinoPlayer player, CasinoInventory screen, int bet) {
         UUID uuid = player.uuid();
+        if (!spinning.contains(uuid)) {
+            return;
+        }
 
         String[] rolled = new String[REELS];
         Map<String, Integer> counts = new LinkedHashMap<>();
@@ -262,6 +275,8 @@ public final class SlotMachine {
         screen.setItem(CHIPS_SLOT, chipsItem(uuid));
         screen.refresh();
         spinning.remove(uuid);
+        activeSpinBet.remove(uuid);
+        activeSpinTasks.remove(uuid);
     }
 
     private String weightedSymbol() {
@@ -284,15 +299,27 @@ public final class SlotMachine {
     }
 
     public void handlePlayerDisconnect(UUID uuid) {
-        if (spinning.remove(uuid)) {
-            int bet = currentBet.getOrDefault(uuid, 0);
-            if (bet > 0) {
-                ctx.chips().add(uuid, bet);
-                ctx.logger().info("Refunded " + bet + " chips to " + uuid
-                        + " from the slot machine after a disconnect mid spin.");
-            }
-        }
+        Integer lockedBet = activeSpinBet.get(uuid);
+        int bet = lockedBet != null ? lockedBet : currentBet.getOrDefault(uuid, 0);
+        abortSpin(uuid, bet, true);
         currentBet.remove(uuid);
         screens.remove(uuid);
+    }
+    private void abortSpin(UUID uuid, int bet, boolean refund) {
+        CasinoTask task = activeSpinTasks.remove(uuid);
+        if (task != null) {
+            try {
+                task.cancel();
+            } catch (Throwable ignored) {
+            }
+        }
+        boolean wasSpinning = spinning.remove(uuid);
+        Integer locked = activeSpinBet.remove(uuid);
+        int amount = locked != null ? locked : bet;
+        if (wasSpinning && refund && amount > 0) {
+            ctx.chips().add(uuid, amount);
+            ctx.logger().info("Refunded " + amount + " chips to " + uuid
+                    + " from the slot machine after a disconnect mid spin.");
+        }
     }
 }

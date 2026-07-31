@@ -7,7 +7,7 @@
     <groupId>ru.stepanyaa</groupId>
     <artifactId>CasinoRoulette</artifactId>
     <!-- Sponge requires a Java module-compatible version beginning with a digit. -->
-    <version>1.2.0</version>
+    <version>1.3.0</version>
     <packaging>jar</packaging>
 
     <name>CasinoRoulette</name>
@@ -30,7 +30,7 @@
     <build>
         <defaultGoal>clean package</defaultGoal>
 
-        <!-- One artifact for every platform: CasinoRoulette-v1.2.0.jar -->
+        <!-- One artifact for every platform: CasinoRoulette-v1.3.0.jar -->
         <finalName>${project.artifactId}-${project.version}</finalName>
 
         <plugins>

@@ -10,6 +10,7 @@ import ru.stepanyaa.casinoRoulette.game.RouletteHost;
 import ru.stepanyaa.casinoRoulette.game.StatsStore;
 import ru.stepanyaa.casinoRoulette.placeholder.CasinoPlaceholderRegistrar;
 import ru.stepanyaa.casinoRoulette.placeholder.PlaceholderService;
+import ru.stepanyaa.casinoRoulette.economy.EconomyCommands;
 import ru.stepanyaa.casinoRoulette.platform.PlatformAdapter;
 import ru.stepanyaa.casinoRoulette.platform.Platforms;
 
@@ -99,6 +100,9 @@ public final class CasinoCore {
         this.context = new GameContext(adapter, configs, messages, chips, stats);
         this.games = new GameHub(context, host);
         this.games.start();
+        if (adapter.type().isSpongeFamily()) {
+            EconomyCommands.register(adapter, context);
+        }
         return games;
     }
 

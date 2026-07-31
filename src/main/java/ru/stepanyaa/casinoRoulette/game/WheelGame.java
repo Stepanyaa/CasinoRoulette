@@ -186,10 +186,10 @@ public final class WheelGame {
 
         int start = wheel().getInt("gui.color-start-slot", 45);
         List<String> colors = configuredColors();
-        if (slot >= start && slot < start + colors.size()) {
+        if (slot >= start && slot < start + colors.size() && slot <= 48) {
             selectedColor.put(uuid, colors.get(slot - start));
             ctx.playClick(player);
-            open(player);
+            redraw(player);
             return;
         }
 
@@ -198,13 +198,23 @@ public final class WheelGame {
             int current = bet.getOrDefault(uuid, minBet()) + (event.clickType().isRight() ? -step : step);
             bet.put(uuid, Math.max(minBet(), Math.min(maxBet(), current)));
             ctx.playClick(player);
-            open(player);
+            redraw(player);
             return;
         }
 
         if (slot == START_SLOT) {
             spin(player);
         }
+    }
+
+    private void redraw(CasinoPlayer player) {
+        UUID uuid = player.uuid();
+        CasinoInventory screen = screens.get(uuid);
+        if (screen == null) {
+            open(player);
+            return;
+        }
+        draw(uuid, screen, 0, -1);
     }
 
     public void handleClose(CasinoEvents.InventoryClose event) {
@@ -289,6 +299,11 @@ public final class WheelGame {
 
         ctx.stats().increment(uuid, "wheel_spins", 1, false);
         spinning.remove(uuid);
+        CasinoInventory screen = screens.get(uuid);
+        if (screen != null && player.isOnline()) {
+            draw(uuid, screen, Math.floorMod(POINTER_INDEX + offset, Math.max(1, sectors.size())),
+                    WHEEL_SLOTS[POINTER_INDEX]);
+        }
     }
 
     public void forget(UUID uuid) {

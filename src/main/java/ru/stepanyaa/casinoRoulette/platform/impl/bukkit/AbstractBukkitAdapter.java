@@ -306,18 +306,61 @@ public abstract class AbstractBukkitAdapter implements PlatformAdapter {
         this.eventBridge = new BukkitEventBridge(plugin, this::toItemStack);
         this.eventBridge.register();
 
-        this.economyManager = new EconomyManager(
-                logger(),
-                type(),
-                dataFolder(),
-                plugin.getConfig().getString("settings.economy-mode",
-                        plugin.getConfig().getString("economy-mode", "AUTO")),
-                plugin.getConfig().getDouble("internal-economy.starting-balance", 0.0D),
-                plugin.getConfig().getString("internal-economy.currency-symbol", ""));
+        bindEconomyFromConfig();
+        plugin.getServer().getPluginManager().registerEvents(new org.bukkit.event.Listener() {
+            @org.bukkit.event.EventHandler
+            public void onPluginEnable(org.bukkit.event.server.PluginEnableEvent event) {
+                String name = event.getPlugin().getName();
+                if (name == null) {
+                    return;
+                }
+                String lower = name.toLowerCase(java.util.Locale.ROOT);
+                if (lower.equals("playerpoints") || lower.equals("vault")
+                        || lower.equals("placeholderapi")) {
+                    if (economyManager != null) {
+                        economyManager.rebind(currentEconomyMode());
+                    }
+                    if (lower.equals("placeholderapi") && placeholderBridge != null) {
+                        try {
+                            placeholderBridge.unregister();
+                        } catch (Throwable ignored) {
+                        }
+                        placeholderBridge = new PapiPlaceholderBridge(
+                                plugin, placeholderService, "casinoroulette");
+                        placeholderBridge.register();
+                    }
+                }
+            }
+        }, plugin);
 
         this.placeholderBridge =
                 new PapiPlaceholderBridge(plugin, placeholderService, "casinoroulette");
         this.placeholderBridge.register();
+    }
+
+    public void rebindEconomy() {
+        if (economyManager != null) {
+            economyManager.rebind(currentEconomyMode());
+        } else {
+            bindEconomyFromConfig();
+        }
+    }
+
+    private String currentEconomyMode() {
+        return plugin.getConfig().getString("settings.economy-mode",
+                plugin.getConfig().getString("economy-mode", "AUTO"));
+    }
+
+    private void bindEconomyFromConfig() {
+        this.economyManager = new EconomyManager(
+                logger(),
+                type(),
+                dataFolder(),
+                currentEconomyMode(),
+                plugin.getConfig().getDouble("economy.internal.starting-balance",
+                        plugin.getConfig().getDouble("internal-economy.starting-balance", 0.0D)),
+                plugin.getConfig().getString("economy.internal.currency-symbol",
+                        plugin.getConfig().getString("internal-economy.currency-symbol", "$")));
     }
 
     @Override

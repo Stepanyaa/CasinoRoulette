@@ -43,10 +43,98 @@ final class SpongeReflection {
         if (cached != null) {
             return cached;
         }
-        Method resolved = owner.getMethod(name, parameters);
-        resolved.setAccessible(true);
+        Method resolved = accessible(owner, name, parameters);
         METHODS.put(key.toString(), resolved);
         return resolved;
+    }
+    private static Method accessible(Class<?> owner, String name, Class<?>... parameters)
+            throws NoSuchMethodException {
+        Method direct = owner.getMethod(name, parameters);
+        if (usable(direct)) {
+            return direct;
+        }
+        for (Class<?> candidate : hierarchy(owner)) {
+            if (candidate == direct.getDeclaringClass()) {
+                continue;
+            }
+            try {
+                Method inherited = candidate.getMethod(name, parameters);
+                if (usable(inherited)) {
+                    return inherited;
+                }
+            } catch (NoSuchMethodException notDeclaredHere) {
+            }
+        }
+        try {
+            direct.setAccessible(true);
+        } catch (Throwable inaccessible) {
+        }
+        return direct;
+    }
+
+    private static boolean usable(Method method) {
+        Class<?> declaring = method.getDeclaringClass();
+        if (!java.lang.reflect.Modifier.isPublic(declaring.getModifiers())) {
+            return false;
+        }
+        if (!declaring.getModule().isExported(declaring.getPackageName())) {
+            return false;
+        }
+        try {
+            method.setAccessible(true);
+        } catch (Throwable alreadyPublic) {
+        }
+        return true;
+    }
+
+    static java.util.List<Class<?>> hierarchy(Class<?> type) {
+        java.util.List<Class<?>> found = new java.util.ArrayList<>();
+        java.util.Deque<Class<?>> pending = new java.util.ArrayDeque<>();
+        pending.add(type);
+        while (!pending.isEmpty()) {
+            Class<?> current = pending.poll();
+            if (current == null || found.contains(current)) {
+                continue;
+            }
+            found.add(current);
+            if (current.getSuperclass() != null) {
+                pending.add(current.getSuperclass());
+            }
+            pending.addAll(java.util.Arrays.asList(current.getInterfaces()));
+        }
+        return found;
+    }
+
+    static String typeNames(Object value) {
+        if (value == null) {
+            return "";
+        }
+        StringBuilder names = new StringBuilder();
+        for (Class<?> type : hierarchy(value.getClass())) {
+            names.append(type.getName()).append(' ');
+        }
+        return names.toString();
+    }
+
+    static String registryValueKey(String registryTypeField, Object value) {
+        if (value == null) {
+            return "";
+        }
+        try {
+            Class<?> registryTypes = type("org.spongepowered.api.registry.RegistryTypes");
+            Object registryType = registryTypes.getField(registryTypeField).get(null);
+
+            Object game = game();
+            Object registry = method(game.getClass(), "registry",
+                            type("org.spongepowered.api.registry.RegistryType"))
+                    .invoke(game, registryType);
+
+            Object key = method(registry.getClass(), "valueKey", Object.class)
+                    .invoke(registry, value);
+            return key == null ? "" : String.valueOf(key);
+        } catch (Throwable unknown) {
+            return "";
+        }
     }
 
     static Object call(Object target, String name) throws ReflectiveOperationException {
