@@ -64,7 +64,7 @@ Create an engaging casino experience for your players with animated menus, confi
 | Purpur | ✅ Supported |
 | Bukkit-based forks | ✅ Supported |
 | Folia | ✅ Supported |
-| Sponge / SpongeVanilla | ⚠️ Experimental / Work in Progress |
+| Sponge / SpongeVanilla | ✅ Supported |
 
 **Minecraft versions:** `1.16.5 – 1.21.x`  
 **To run on version 1.16.5, specify the launch flag `DPaper.IgnoreJavaVersion=true`**  
@@ -252,7 +252,7 @@ The developer does not encourage real-life gambling. Please play responsibly.
 | Purpur | ✅ Поддерживается |
 | Bukkit-ядра и форки | ✅ Поддерживаются |
 | Folia | ✅ Поддерживается |
-| Sponge / SpongeVanilla | ⚠️ Экспериментально / В разработке |
+| Sponge / SpongeVanilla | ✅ Поддерживается |
 
 **Версии Minecraft:** `1.16.5 – 1.21.x`  
 **Для запуска в версии 1.16.5 укажите флаг запуска `DPaper.IgnoreJavaVersion=true`**  
